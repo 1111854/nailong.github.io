@@ -110,7 +110,7 @@ def render_with_latex(content):
 
 # ========== 联网搜索函数 ==========
 def search_web(query, max_results=3):
-    tavily_key = os.environ.get('TAPI', '')
+    tavily_key =  "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"
     if not tavily_key:
         return []
     try:
