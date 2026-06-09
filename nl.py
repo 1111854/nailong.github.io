@@ -12,7 +12,9 @@ import re
 import time
 import httpx
 import uuid
-
+ gif_path = os.path.join(BASE_DIR, "banner.gif")
+    if os.path.exists(gif_path):
+        st.image(gif_path)
 # ========== 页面配置 ==========
 st.set_page_config(
     page_title="奶龙ChatGPT",
