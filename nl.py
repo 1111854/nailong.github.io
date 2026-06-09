@@ -11,7 +11,7 @@ import time
 import httpx
 import uuid
 import google.generativeai as genai
-
+from tavily import TavilyClient
 # 导入模型配置
 from utils import AVAILABLE_MODELS, DEFAULT_MODEL
 
@@ -106,7 +106,21 @@ def render_with_latex(content):
             st.markdown(converted)
         except Exception:
             st.text(content)
-
+def search_web(query, max_results=3):
+    tavily_key = os.environ.get('TAPI', '')
+    if not tavily_key:
+        return []
+    try:
+        client = TavilyClient(api_key=tavily_key)
+        response = client.search(query=query, search_depth="basic", max_results=max_results, include_answer=True)
+        results = []
+        if response.get('answer'):
+            results.append({'title': '📌 AI 总结', 'snippet': response['answer']})
+        for item in response.get('results', [])[:max_results]:
+            results.append({'title': item.get('title', '无标题'), 'snippet': item.get('content', '无内容')[:300]})
+        return results
+    except Exception as e:
+        return []
 # ========== Session State初始化 ==========
 if 'messages' not in st.session_state:
     st.session_state.messages = []
@@ -218,7 +232,8 @@ with st.sidebar:
     
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
     st.markdown("---")
-    
+    st.markdown("---")
+    web_search = st.toggle("🌐 开启联网搜索", value=False)
     # 自定义提示词
     st.subheader("🎭 AI角色设定")
     new_prompt = st.text_area(
@@ -429,7 +444,11 @@ if prompt:
             base_url=API_URL,
             http_client=http_client
         )
-
+        if web_search:
+             search_results = search_web(prompt)
+             if search_results:
+               context = "\n\n【搜索结果】\n" + "\n".join([f"- {r['title']}: {r['snippet']}" for r in search_results])
+               st.session_state.system_prompt += context  # 临时添加到系统提示
         api_messages = [{"role": "system", "content": st.session_state.system_prompt}]
         for msg in st.session_state.messages[:-1]:
             api_messages.append({"role": msg["role"], "content": msg["content"]})
