@@ -12,7 +12,7 @@ import re
 import time
 import httpx
 import uuid
-from utils import AVAILABLE_MODELS, DEFAULT_MODEL
+
 # ========== 页面配置 ==========
 st.set_page_config(
     page_title="奶龙ChatGPT",
@@ -216,42 +216,42 @@ with st.sidebar:
             st.rerun()
     
     # ========== 模型选择 ==========
-st.markdown("---")
-st.subheader("🤖 模型选择")
+    st.markdown("---")
+    st.subheader("🤖 模型选择")
 
-# 初始化
-if 'selected_model' not in st.session_state:
-    st.session_state.selected_model = "gpt-5.5"
+    # 初始化
+    if 'selected_model' not in st.session_state:
+        st.session_state.selected_model = "gpt-5.5"
 
-# 搜索框
-search_term = st.text_input("🔍 搜索模型", placeholder="输入名称筛选...", key="model_search")
+    # 搜索框
+    search_term = st.text_input("🔍 搜索模型", placeholder="输入名称筛选...", key="model_search")
 
-# 过滤
-if search_term:
-    filtered_models = [m for m in AVAILABLE_MODELS if search_term.lower() in m.lower()]
-else:
-    filtered_models = AVAILABLE_MODELS
+    # 过滤
+    if search_term:
+        filtered_models = [m for m in AVAILABLE_MODELS if search_term.lower() in m.lower()]
+    else:
+        filtered_models = AVAILABLE_MODELS
 
-# 选择器
-try:
-    current_index = filtered_models.index(st.session_state.selected_model)
-except ValueError:
-    current_index = 0
+    # 选择器
+    try:
+        current_index = filtered_models.index(st.session_state.selected_model)
+    except ValueError:
+        current_index = 0
 
-selected_model = st.selectbox(
-    "选择AI模型",
-    options=filtered_models,
-    index=current_index,
-    help="从列表中选择模型"
-)
+    selected_model = st.selectbox(
+        "选择AI模型",
+        options=filtered_models,
+        index=current_index,
+        help="从列表中选择模型"
+    )
 
-if selected_model != st.session_state.selected_model:
-    st.session_state.selected_model = selected_model
-    st.success(f"已切换到: {selected_model}")
-    st.rerun()
+    if selected_model != st.session_state.selected_model:
+        st.session_state.selected_model = selected_model
+        st.success(f"已切换到: {selected_model}")
+        st.rerun()
 
-st.caption(f"当前模型: `{st.session_state.selected_model}`")
-st.markdown("---")
+    st.caption(f"当前模型: `{st.session_state.selected_model}`")
+    st.markdown("---")
     
     # 自定义提示词
     st.subheader("🎭 AI角色设定")
