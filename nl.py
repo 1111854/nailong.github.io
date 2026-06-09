@@ -11,6 +11,89 @@ import docx
 import re
 import time
 import httpx
+import uuid
+
+# ========== 页面配置 ==========
+st.set_page_config(
+    page_title="奶龙ChatGPT",
+    page_icon="🤖",
+    layout="wide"
+)
+
+# ========== 图片处理函数（支持GitHub相对路径）==========
+def get_image_base64(image_path):
+    """将本地图片转换为base64编码（用于无法直接URL引用的地方）"""
+    try:
+        with open(image_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except:
+        return None
+
+def get_avatar(role):
+    """获取头像（使用emoji，避免路径问题）"""
+    return "🐉" if role == "user" else "🤖"
+
+# ========== 配置 ==========
+API_URL = "https://mynewapi.n1neman.fun/v1"
+MODEL = "gpt-5.5"
+
+# 基础目录
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+HISTORY_DIR = os.path.join(BASE_DIR, "chat_history")
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+
+# ========== 用户隔离核心代码 ==========
+def get_user_session_id():
+    """获取或创建当前用户的唯一会话ID（用于隔离）"""
+    if 'user_session_id' not in st.session_state:
+        # 生成一个唯一的用户ID，存在session里
+        st.session_state.user_session_id = str(uuid.uuid4())
+    return st.session_state.user_session_id
+
+def get_user_dir():
+    """获取当前用户的专属目录"""
+    user_id = get_user_session_id()
+    user_dir = os.path.join(HISTORY_DIR, user_id)
+    if not os.path.exists(user_dir):
+        os.makedirs(user_dir)
+    return user_dir
+
+# 确保目录存在
+for dir_path in [HISTORY_DIR, UPLOAD_DIR]:
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+# ========== 文件处理函数 ==========
+def encode_image(image_file):
+    """将图片编码为base64"""
+    return base64.b64encode(image_file.read()).decode('utf-8')
+
+def extract_text_from_pdf(file):
+    """从PDF提取文本"""
+    try:
+        pdf_reader = PyPDF2.PdfReader(file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+        return text[:3000]
+    except:
+        return "无法读取PDF内容"
+
+def extract_text_from_docx(file):
+    """从Word文档提取文本"""
+    try:
+        doc = docx.Document(file)
+        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+        return text[:3000]
+    except:
+        return "无法读取Word文档内容"
+
+def extract_text_from_txt(file):
+    """从TXT文件提取文本"""
+    try:
+        return file.read().decode('utf-8')[:3000]
+    except:
+        return file.read().decode('gbk')[:3000]
 
 # ========== LaTeX渲染函数 ==========
 def is_broken_format(text):
@@ -51,58 +134,6 @@ def render_with_latex(content):
         except Exception:
             st.text(content)
 
-# ========== 页面配置 ==========
-st.set_page_config(
-    page_title="ChatGPT",
-    page_icon="🤖",
-    layout="wide"
-)
-
-# ========== 配置 ==========
-API_URL = "https://mynewapi.n1neman.fun/v1"
-MODEL = "gpt-5.5"
-
-# 历史记录保存目录
-HISTORY_DIR = "chat_history"
-UPLOAD_DIR = "uploads"
-
-# 确保目录存在
-for dir_path in [HISTORY_DIR, UPLOAD_DIR]:
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
-
-# ========== 文件处理函数 ==========
-def encode_image(image_file):
-    """将图片编码为base64"""
-    return base64.b64encode(image_file.read()).decode('utf-8')
-
-def extract_text_from_pdf(file):
-    """从PDF提取文本"""
-    try:
-        pdf_reader = PyPDF2.PdfReader(file)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text()
-        return text[:3000]
-    except:
-        return "无法读取PDF内容"
-
-def extract_text_from_docx(file):
-    """从Word文档提取文本"""
-    try:
-        doc = docx.Document(file)
-        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-        return text[:3000]
-    except:
-        return "无法读取Word文档内容"
-
-def extract_text_from_txt(file):
-    """从TXT文件提取文本"""
-    try:
-        return file.read().decode('utf-8')[:3000]
-    except:
-        return file.read().decode('gbk')[:3000]
-
 # ========== Session State初始化 ==========
 if 'messages' not in st.session_state:
     st.session_state.messages = []
@@ -115,14 +146,15 @@ if 'current_session_id' not in st.session_state:
 if 'show_uploader' not in st.session_state:
     st.session_state.show_uploader = False
 
-# ========== 对话管理函数 ==========
+# ========== 对话管理函数（用户隔离版）==========
 def save_conversation():
-    """保存当前对话"""
+    """保存当前对话到用户专属目录"""
     if not st.session_state.messages:
         return None
     
+    user_dir = get_user_dir()
     session_id = st.session_state.current_session_id or datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = os.path.join(HISTORY_DIR, f"{session_id}.json")
+    filename = os.path.join(user_dir, f"{session_id}.json")
     
     data = {
         "session_id": session_id,
@@ -137,12 +169,14 @@ def save_conversation():
     return session_id
 
 def list_conversations():
-    """列出所有保存的对话"""
+    """列出当前用户保存的所有对话"""
     conversations = []
-    if os.path.exists(HISTORY_DIR):
-        for file in os.listdir(HISTORY_DIR):
+    user_dir = get_user_dir()
+    
+    if os.path.exists(user_dir):
+        for file in os.listdir(user_dir):
             if file.endswith(".json"):
-                filepath = os.path.join(HISTORY_DIR, file)
+                filepath = os.path.join(user_dir, file)
                 with open(filepath, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     conversations.append({
@@ -150,12 +184,15 @@ def list_conversations():
                         "created_at": data["created_at"],
                         "message_count": len(data["messages"])
                     })
+    
     conversations.sort(key=lambda x: x["created_at"], reverse=True)
     return conversations
 
 def load_conversation(session_id):
-    """加载指定的对话"""
-    filename = os.path.join(HISTORY_DIR, f"{session_id}.json")
+    """加载当前用户的指定对话"""
+    user_dir = get_user_dir()
+    filename = os.path.join(user_dir, f"{session_id}.json")
+    
     if os.path.exists(filename):
         with open(filename, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -165,8 +202,10 @@ def load_conversation(session_id):
     return False
 
 def delete_conversation(session_id):
-    """删除指定的对话"""
-    filename = os.path.join(HISTORY_DIR, f"{session_id}.json")
+    """删除当前用户的指定对话"""
+    user_dir = get_user_dir()
+    filename = os.path.join(user_dir, f"{session_id}.json")
+    
     if os.path.exists(filename):
         os.remove(filename)
         return True
@@ -184,9 +223,18 @@ def delete_current_conversation():
 
 # ========== 侧边栏 ==========
 with st.sidebar:
-    st.title("🤖 ChatGPT")
+    # 显示奶龙头像
+    st.markdown("### 🐉 奶龙ChatGPT")
     
-    # API密钥输入（优先从环境变量读取）
+    # 显示GIF（如果有的话，需要放到assets文件夹）
+    gif_path = os.path.join(BASE_DIR, "assets", "banner.gif")
+    if os.path.exists(gif_path):
+        st.image(gif_path)
+    else:
+        # 如果没有GIF，显示一个可爱的文本
+        st.caption("🐉 奶龙陪你聊天~")
+    
+    # API密钥输入
     api_key = os.environ.get('CAPI')
     if api_key:
         st.session_state.api_key = api_key
@@ -196,6 +244,13 @@ with st.sidebar:
         if api_key_input:
             st.session_state.api_key = api_key_input
             st.rerun()
+    
+    st.markdown("---")
+    
+    # 显示用户ID（调试用，可选）
+    with st.expander("🔒 隐私信息"):
+        st.caption(f"你的会话ID: {get_user_session_id()[:8]}...")
+        st.caption("你的对话只会自己看到，其他人看不到")
     
     st.markdown("---")
     
@@ -229,10 +284,10 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 历史对话列表
+    # 历史对话列表（只显示当前用户的）
     conversations = list_conversations()
     if conversations:
-        st.subheader("📜 历史记录")
+        st.subheader("📜 你的历史记录")
         for conv in conversations[:10]:
             col1, col2 = st.columns([4, 1])
             with col1:
@@ -252,9 +307,16 @@ with st.sidebar:
     # 统计
     st.markdown("---")
     st.caption(f"模型: {MODEL}")
-    st.caption(f"消息数: {len(st.session_state.messages)}")
+    st.caption(f"本会话消息数: {len(st.session_state.messages)}")
 
-# ========== 主界面 - 显示历史消息 ==========
+# ========== 主界面 ==========
+# 显示欢迎GIF（如果有）
+welcome_gif = os.path.join(BASE_DIR, "assets", "welcome.gif")
+if os.path.exists(welcome_gif) and not st.session_state.messages:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image(welcome_gif)
+
 # 显示当前上传的文件
 if st.session_state.uploaded_files:
     with st.expander("📎 已上传的文件", expanded=True):
@@ -269,7 +331,7 @@ if st.session_state.uploaded_files:
 
 # 显示历史消息
 for message in st.session_state.messages:
-    avatar = "😊" if message["role"] == "user" else "🤖"
+    avatar = get_avatar(message["role"])
     with st.chat_message(message["role"], avatar=avatar):
         if "files" in message:
             st.caption("📎 附件:")
@@ -285,12 +347,6 @@ st.markdown("""
             font-size: 14px;
             padding: 5px 10px;
         }
-    }
-    .upload-section {
-        background-color: #f0f2f6;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
     }
     @keyframes blink {
         0%, 100% { opacity: 1; }
@@ -388,7 +444,7 @@ if prompt:
     files_to_attach = st.session_state.uploaded_files.copy()
     
     # 显示用户消息
-    with st.chat_message("user", avatar="😊"):
+    with st.chat_message("user", avatar=get_avatar("user")):
         if files_to_attach:
             st.caption("📎 附件:")
             for file in files_to_attach:
@@ -440,13 +496,11 @@ if prompt:
             "content": current_content if len(current_content) > 1 else prompt
         })
         
-        with st.chat_message("assistant", avatar="🤖"):
+        with st.chat_message("assistant", avatar=get_avatar("assistant")):
             message_placeholder = st.empty()
             full_reply = ""
             
-            with st.spinner("🤖 AI正在思考..."):
-                time.sleep(0.5)
-                
+            with st.spinner("🐉 奶龙正在思考..."):
                 response = client.chat.completions.create(
                     model=MODEL,
                     messages=api_messages
@@ -457,12 +511,13 @@ if prompt:
                     fixed = re.sub(r'\s+', '', full_reply)
                     full_reply = f'$$\n{fixed}\n$$'
                 
+                # 打字效果
                 displayed = ""
-                for i, char in enumerate(full_reply):
+                for char in full_reply:
                     displayed += char
                     converted = convert_latex_format(displayed)
                     message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
-                    time.sleep(0.015)
+                    time.sleep(0.008)  # 更快一点
                 
                 final_content = convert_latex_format(full_reply)
                 message_placeholder.markdown(final_content)
