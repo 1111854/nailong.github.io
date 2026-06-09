@@ -11,6 +11,8 @@ import time
 import httpx
 import uuid
 import google.generativeai as genai
+import requests
+from bs4 import BeautifulSoup
 
 # 导入模型配置
 from utils import AVAILABLE_MODELS, DEFAULT_MODEL
@@ -106,6 +108,50 @@ def render_with_latex(content):
             st.markdown(converted)
         except Exception:
             st.text(content)
+# ========== 联网搜索函数 ==========
+def search_web(query, max_results=3):
+    """简单的联网搜索函数（使用DuckDuckGo）"""
+    try:
+        url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        
+        results = []
+        if 'RelatedTopics' in data:
+            for topic in data['RelatedTopics'][:max_results]:
+                if 'Text' in topic:
+                    results.append({
+                        'title': topic['Text'].split('\n')[0][:100],
+                        'snippet': topic['Text'][:300]
+                    })
+        
+        if not results:
+            url = f"https://ddg-api.herokuapp.com/search?query={query}&limit={max_results}"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                for item in data[:max_results]:
+                    results.append({
+                        'title': item.get('title', '')[:100],
+                        'snippet': item.get('snippet', '')[:300]
+                    })
+        
+        return results
+    except Exception as e:
+        print(f"搜索失败: {e}")
+        return []
+
+def format_search_results(results):
+    """格式化搜索结果"""
+    if not results:
+        return ""
+    
+    formatted = "\n\n【联网搜索结果】\n"
+    for i, result in enumerate(results, 1):
+        formatted += f"\n{i}. {result['title']}\n"
+        formatted += f"   {result['snippet']}\n"
+    formatted += "\n请基于以上搜索结果回答用户问题。\n"
+    return formatted
 
 # ========== Session State初始化 ==========
 if 'messages' not in st.session_state:
@@ -122,7 +168,10 @@ if 'system_prompt' not in st.session_state:
     st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = DEFAULT_MODEL
-
+if 'deep_think_enabled' not in st.session_state:
+    st.session_state.deep_think_enabled = False
+if 'web_search_enabled' not in st.session_state:
+    st.session_state.web_search_enabled = False
 # ========== 保存和加载函数 ==========
 def save_conversation():
     if not st.session_state.messages:
@@ -218,7 +267,35 @@ with st.sidebar:
     
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
     st.markdown("---")
-    
+    st.markdown("---")
+st.subheader("🧠 高级功能")
+
+col1, col2 = st.columns(2)
+with col1:
+    deep_think = st.toggle(
+        "🔍 深度思考", 
+        value=st.session_state.deep_think_enabled,
+        help="启用后，模型会展示详细的推理过程"
+    )
+    if deep_think != st.session_state.deep_think_enabled:
+        st.session_state.deep_think_enabled = deep_think
+
+with col2:
+    web_search = st.toggle(
+        "🌐 联网搜索", 
+        value=st.session_state.web_search_enabled,
+        help="启用后，模型可以搜索最新信息"
+    )
+    if web_search != st.session_state.web_search_enabled:
+        st.session_state.web_search_enabled = web_search
+
+if st.session_state.deep_think_enabled or st.session_state.web_search_enabled:
+    features = []
+    if st.session_state.deep_think_enabled:
+        features.append("🔍 深度思考")
+    if st.session_state.web_search_enabled:
+        features.append("🌐 联网搜索")
+    st.info(f"✅ 已启用: {' + '.join(features)}")
     # 自定义提示词
     st.subheader("🎭 AI角色设定")
     new_prompt = st.text_area(
