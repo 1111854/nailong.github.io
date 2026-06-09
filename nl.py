@@ -338,18 +338,27 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 输入区域
-col1, col2, col3 = st.columns([15, 1, 1])
-with col1:
-    prompt = st.chat_input("输入消息... (点击右侧按钮上传文件)")
-with col2:
-    if st.button("📎", key="toggle_uploader", use_container_width=True, help="上传文件"):
+# ========== 输入区域（移动端优化版）==========
+# 按钮放在输入框上方，移动端不会折行
+col_btn1, col_btn2 = st.columns(2)
+
+with col_btn1:
+    if st.button("📎 上传文件", use_container_width=True, key="mobile_upload_btn"):
         st.session_state.show_uploader = not st.session_state.show_uploader
         st.rerun()
-with col3:
-    if st.button("🗑️", key="clear_files_btn", use_container_width=True, help="清空所有上传的文件"):
+
+with col_btn2:
+    if st.button("🗑️ 清空文件", use_container_width=True, key="mobile_clear_btn"):
         st.session_state.uploaded_files = []
         st.success("已清空上传的文件")
         st.rerun()
+
+# 显示当前已上传文件数量
+if st.session_state.uploaded_files:
+    st.caption(f"📎 已上传 {len(st.session_state.uploaded_files)} 个文件")
+
+# 输入框
+prompt = st.chat_input("输入消息...")
 
 # ========== 文件上传区域（改进版）==========
 if st.session_state.show_uploader:
