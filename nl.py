@@ -20,19 +20,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# ========== 图片处理函数（支持GitHub相对路径）==========
-def get_image_base64(image_path):
-    """将本地图片转换为base64编码（用于无法直接URL引用的地方）"""
-    try:
-        with open(image_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    except:
-        return None
-
-def get_avatar(role):
-    """获取头像（使用emoji，避免路径问题）"""
-    return "🐉" if role == "user" else "🤖"
-
 # ========== 配置 ==========
 API_URL = "https://mynewapi.n1neman.fun/v1"
 MODEL = "gpt-5.5"
@@ -46,7 +33,6 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 def get_user_session_id():
     """获取或创建当前用户的唯一会话ID（用于隔离）"""
     if 'user_session_id' not in st.session_state:
-        # 生成一个唯一的用户ID，存在session里
         st.session_state.user_session_id = str(uuid.uuid4())
     return st.session_state.user_session_id
 
@@ -63,13 +49,32 @@ for dir_path in [HISTORY_DIR, UPLOAD_DIR]:
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 
+# ========== 头像和GIF显示函数 ==========
+def get_avatar(role):
+    """获取头像（使用上传的图片）"""
+    if role == "user":
+        avatar_path = os.path.join(BASE_DIR, "User_avatar.png")
+    else:
+        avatar_path = os.path.join(BASE_DIR, "AI_avatar.png")
+    
+    # 如果图片存在，使用图片；否则用emoji
+    if os.path.exists(avatar_path):
+        return avatar_path
+    return "🐉" if role == "user" else "🤖"
+
+def show_banner_gif():
+    """显示侧边栏GIF"""
+    gif_path = os.path.join(BASE_DIR, "banner.gif")
+    if os.path.exists(gif_path):
+        st.image(gif_path)
+    else:
+        st.caption("🐉 奶龙陪你聊天~")
+
 # ========== 文件处理函数 ==========
 def encode_image(image_file):
-    """将图片编码为base64"""
     return base64.b64encode(image_file.read()).decode('utf-8')
 
 def extract_text_from_pdf(file):
-    """从PDF提取文本"""
     try:
         pdf_reader = PyPDF2.PdfReader(file)
         text = ""
@@ -80,7 +85,6 @@ def extract_text_from_pdf(file):
         return "无法读取PDF内容"
 
 def extract_text_from_docx(file):
-    """从Word文档提取文本"""
     try:
         doc = docx.Document(file)
         text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
@@ -89,7 +93,6 @@ def extract_text_from_docx(file):
         return "无法读取Word文档内容"
 
 def extract_text_from_txt(file):
-    """从TXT文件提取文本"""
     try:
         return file.read().decode('utf-8')[:3000]
     except:
@@ -97,7 +100,6 @@ def extract_text_from_txt(file):
 
 # ========== LaTeX渲染函数 ==========
 def is_broken_format(text):
-    """检测是否是错误格式（每个字母换行）"""
     if not isinstance(text, str):
         return False
     lines = [line.strip() for line in text.split('\n') if line.strip()]
@@ -108,25 +110,20 @@ def is_broken_format(text):
     return False
 
 def convert_latex_format(text):
-    """增强版LaTeX格式转换"""
     if not isinstance(text, str):
         return text
-    
     text = re.sub(r'\\\[(.*?)\\\]', r'$$\1$$', text, flags=re.DOTALL)
     text = re.sub(r'\\\((.*?)\\\)', r'$\1$', text, flags=re.DOTALL)
     text = re.sub(r',(dx|dy|dz|dr|dt|d\\theta)', r'\,\1', text)
-    
     if '\\int' in text or '\\frac' in text or '\\sum' in text:
         if '$' not in text and '$$' not in text:
             if '\n' in text and len(text) > 50:
                 text = f'$$\n{text}\n$$'
             else:
                 text = f'${text}$'
-    
     return text
 
 def render_with_latex(content):
-    """渲染包含LaTeX的内容"""
     if content:
         try:
             converted = convert_latex_format(content)
@@ -148,31 +145,24 @@ if 'show_uploader' not in st.session_state:
 
 # ========== 对话管理函数（用户隔离版）==========
 def save_conversation():
-    """保存当前对话到用户专属目录"""
     if not st.session_state.messages:
         return None
-    
     user_dir = get_user_dir()
     session_id = st.session_state.current_session_id or datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = os.path.join(user_dir, f"{session_id}.json")
-    
     data = {
         "session_id": session_id,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "messages": st.session_state.messages
     }
-    
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    
     st.session_state.current_session_id = session_id
     return session_id
 
 def list_conversations():
-    """列出当前用户保存的所有对话"""
     conversations = []
     user_dir = get_user_dir()
-    
     if os.path.exists(user_dir):
         for file in os.listdir(user_dir):
             if file.endswith(".json"):
@@ -184,15 +174,12 @@ def list_conversations():
                         "created_at": data["created_at"],
                         "message_count": len(data["messages"])
                     })
-    
     conversations.sort(key=lambda x: x["created_at"], reverse=True)
     return conversations
 
 def load_conversation(session_id):
-    """加载当前用户的指定对话"""
     user_dir = get_user_dir()
     filename = os.path.join(user_dir, f"{session_id}.json")
-    
     if os.path.exists(filename):
         with open(filename, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -202,17 +189,14 @@ def load_conversation(session_id):
     return False
 
 def delete_conversation(session_id):
-    """删除当前用户的指定对话"""
     user_dir = get_user_dir()
     filename = os.path.join(user_dir, f"{session_id}.json")
-    
     if os.path.exists(filename):
         os.remove(filename)
         return True
     return False
 
 def delete_current_conversation():
-    """删除当前对话"""
     if st.session_state.current_session_id:
         delete_conversation(st.session_state.current_session_id)
         st.session_state.messages = []
@@ -223,18 +207,9 @@ def delete_current_conversation():
 
 # ========== 侧边栏 ==========
 with st.sidebar:
-    # 显示奶龙头像
     st.markdown("### 🐉 奶龙ChatGPT")
+    show_banner_gif()
     
-    # 显示GIF（如果有的话，需要放到assets文件夹）
-    gif_path = os.path.join(BASE_DIR, "assets", "banner.gif")
-    if os.path.exists(gif_path):
-        st.image(gif_path)
-    else:
-        # 如果没有GIF，显示一个可爱的文本
-        st.caption("🐉 奶龙陪你聊天~")
-    
-    # API密钥输入
     api_key = os.environ.get('CAPI')
     if api_key:
         st.session_state.api_key = api_key
@@ -247,16 +222,13 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 显示用户ID（调试用，可选）
     with st.expander("🔒 隐私信息"):
         st.caption(f"你的会话ID: {get_user_session_id()[:8]}...")
         st.caption("你的对话只会自己看到，其他人看不到")
     
     st.markdown("---")
     
-    # 对话管理
     st.subheader("💬 对话管理")
-    
     col1, col2, col3 = st.columns(3)
     with col1:
         if st.button("💾 保存", use_container_width=True):
@@ -266,14 +238,12 @@ with st.sidebar:
                 st.rerun()
             else:
                 st.warning("没有可保存的对话")
-    
     with col2:
         if st.button("✨ 新建", use_container_width=True):
             st.session_state.messages = []
             st.session_state.uploaded_files = []
             st.session_state.current_session_id = None
             st.rerun()
-    
     with col3:
         if st.button("🗑️ 删除", use_container_width=True):
             if delete_current_conversation():
@@ -284,7 +254,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 历史对话列表（只显示当前用户的）
     conversations = list_conversations()
     if conversations:
         st.subheader("📜 你的历史记录")
@@ -304,20 +273,11 @@ with st.sidebar:
                             st.session_state.current_session_id = None
                         st.rerun()
     
-    # 统计
     st.markdown("---")
     st.caption(f"模型: {MODEL}")
     st.caption(f"本会话消息数: {len(st.session_state.messages)}")
 
 # ========== 主界面 ==========
-# 显示欢迎GIF（如果有）
-welcome_gif = os.path.join(BASE_DIR, "assets", "welcome.gif")
-if os.path.exists(welcome_gif) and not st.session_state.messages:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.image(welcome_gif)
-
-# 显示当前上传的文件
 if st.session_state.uploaded_files:
     with st.expander("📎 已上传的文件", expanded=True):
         for idx, file in enumerate(st.session_state.uploaded_files):
@@ -329,7 +289,6 @@ if st.session_state.uploaded_files:
                     st.session_state.uploaded_files.pop(idx)
                     st.rerun()
 
-# 显示历史消息
 for message in st.session_state.messages:
     avatar = get_avatar(message["role"])
     with st.chat_message(message["role"], avatar=avatar):
@@ -339,7 +298,6 @@ for message in st.session_state.messages:
                 st.write(f"- {file['name']}")
         render_with_latex(message["content"])
 
-# ========== 自定义CSS ==========
 st.markdown("""
 <style>
     @media (max-width: 768px) {
@@ -364,43 +322,34 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ========== 输入区域 ==========
 col1, col2, col3 = st.columns([15, 1, 1])
-
 with col1:
     prompt = st.chat_input("输入消息... (点击右侧按钮上传文件)")
-
 with col2:
     if st.button("📎", key="toggle_uploader", use_container_width=True, help="上传文件"):
         st.session_state.show_uploader = not st.session_state.show_uploader
         st.rerun()
-
 with col3:
     if st.button("🗑️", key="clear_files_btn", use_container_width=True, help="清空所有上传的文件"):
         st.session_state.uploaded_files = []
         st.success("已清空上传的文件")
         st.rerun()
 
-# ========== 文件上传区域 ==========
 if st.session_state.show_uploader:
     with st.container():
         st.markdown("### 📎 上传文件")
-        
         uploaded_file = st.file_uploader(
-            "选择文件（选择后自动添加）",
+            "选择文件",
             type=['png', 'jpg', 'jpeg', 'pdf', 'docx', 'txt'],
             key="main_file_uploader",
             label_visibility="collapsed"
         )
-        
         if uploaded_file is not None:
             if 'last_uploaded' not in st.session_state:
                 st.session_state.last_uploaded = None
-            
             file_key = f"{uploaded_file.name}_{uploaded_file.size}"
             if st.session_state.last_uploaded != file_key:
                 st.session_state.last_uploaded = file_key
-                
                 file_info = {
                     "name": uploaded_file.name,
                     "type": uploaded_file.type,
@@ -408,7 +357,6 @@ if st.session_state.show_uploader:
                     "content": None,
                     "is_image": False
                 }
-                
                 with st.spinner(f"正在处理 {uploaded_file.name}..."):
                     if uploaded_file.type.startswith('image/'):
                         st.image(uploaded_file, caption=uploaded_file.name, use_column_width=True)
@@ -424,18 +372,14 @@ if st.session_state.show_uploader:
                     elif uploaded_file.type == 'text/plain':
                         uploaded_file.seek(0)
                         file_info["content"] = extract_text_from_txt(uploaded_file)
-                    
                     st.session_state.uploaded_files.append(file_info)
-                
                 st.session_state.show_uploader = False
                 st.success(f"✅ 已添加 {uploaded_file.name}")
                 st.rerun()
-        
         if st.button("❌ 关闭", use_container_width=True):
             st.session_state.show_uploader = False
             st.rerun()
 
-# ========== 处理消息 ==========
 if prompt:
     if not st.session_state.api_key:
         st.error("请先在侧边栏设置API密钥")
@@ -443,7 +387,6 @@ if prompt:
     
     files_to_attach = st.session_state.uploaded_files.copy()
     
-    # 显示用户消息
     with st.chat_message("user", avatar=get_avatar("user")):
         if files_to_attach:
             st.caption("📎 附件:")
@@ -451,18 +394,13 @@ if prompt:
                 st.write(f"- {file['name']}")
         st.markdown(prompt)
     
-    # 保存用户消息
     user_message = {"role": "user", "content": prompt}
     if files_to_attach:
         user_message["files"] = files_to_attach
     st.session_state.messages.append(user_message)
     
     try:
-        http_client = httpx.Client(
-            timeout=None,
-            follow_redirects=True
-        )
-        
+        http_client = httpx.Client(timeout=None, follow_redirects=True)
         client = OpenAI(
             api_key=st.session_state.api_key,
             base_url=API_URL,
@@ -470,15 +408,11 @@ if prompt:
             timeout=None
         )
         
-        api_messages = [
-            {"role": "system", "content": "公式必须用$$写在一行，如$$\\int_a^b fdx$$"}
-        ]
-        
+        api_messages = [{"role": "system", "content": "公式必须用$$写在一行，如$$\\int_a^b fdx$$"}]
         for msg in st.session_state.messages[:-1]:
             api_messages.append({"role": msg["role"], "content": msg["content"]})
         
         current_content = [{"type": "text", "text": prompt}]
-        
         for file in files_to_attach:
             if file.get("is_image") and file.get("content"):
                 current_content.append({
@@ -499,28 +433,19 @@ if prompt:
         with st.chat_message("assistant", avatar=get_avatar("assistant")):
             message_placeholder = st.empty()
             full_reply = ""
-            
             with st.spinner("🐉 奶龙正在思考..."):
-                response = client.chat.completions.create(
-                    model=MODEL,
-                    messages=api_messages
-                )
+                response = client.chat.completions.create(model=MODEL, messages=api_messages)
                 full_reply = response.choices[0].message.content
-                
                 if is_broken_format(full_reply):
                     fixed = re.sub(r'\s+', '', full_reply)
                     full_reply = f'$$\n{fixed}\n$$'
-                
-                # 打字效果
                 displayed = ""
                 for char in full_reply:
                     displayed += char
                     converted = convert_latex_format(displayed)
                     message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
-                    time.sleep(0.008)  # 更快一点
-                
-                final_content = convert_latex_format(full_reply)
-                message_placeholder.markdown(final_content)
+                    time.sleep(0.008)
+                message_placeholder.markdown(convert_latex_format(full_reply))
         
         st.session_state.messages.append({"role": "assistant", "content": full_reply})
         st.session_state.uploaded_files = []
