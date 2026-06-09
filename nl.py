@@ -564,7 +564,6 @@ if prompt:
             thinking_container = st.container()
             answer_container = st.container()
             
-            # 先显示搜索和思考的占位（稍后填充）
             with st.spinner("🐉 奶龙正在生成回答..."):
                 # 调用API
                 response = client.chat.completions.create(
