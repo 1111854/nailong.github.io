@@ -446,11 +446,55 @@ if prompt:
         user_message["files"] = files_to_attach
     st.session_state.messages.append(user_message)
     
-    try:
-        # 自动保存
-        save_conversation()
+try:
+    # 自动保存
+    save_conversation()
+    
+    # 判断是否 Gemini 模型
+    is_gemini = st.session_state.selected_model.startswith("gemini")
+    
+    if is_gemini:
+        # ========== Gemini 调用 ==========
+        # 配置 Gemini（使用相同的 API 密钥）
+        genai.configure(api_key=st.session_state.api_key)
         
-        # 创建API客户端
+        # 构建 Gemini 格式的历史消息
+        gemini_history = []
+        for msg in st.session_state.messages[:-1]:
+            role = "user" if msg["role"] == "user" else "model"
+            gemini_history.append({
+                "role": role,
+                "parts": [msg["content"]]
+            })
+        
+        # 创建 Gemini 模型
+        model = genai.GenerativeModel(
+            model_name=st.session_state.selected_model,
+            system_instruction=st.session_state.system_prompt
+        )
+        
+        # 启动聊天
+        chat = model.start_chat(history=gemini_history)
+        
+        # 获取回复
+        with st.chat_message("assistant", avatar=get_avatar("assistant")):
+            message_placeholder = st.empty()
+            full_reply = ""
+            with st.spinner("🐉 奶龙正在思考..."):
+                response = chat.send_message(prompt)
+                full_reply = response.text
+                
+                # 打字效果
+                displayed = ""
+                for char in full_reply:
+                    displayed += char
+                    converted = convert_latex_format(displayed)
+                    message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
+                    time.sleep(0.008)
+                message_placeholder.markdown(convert_latex_format(full_reply))
+    
+    else:
+        # ========== OpenAI 格式（GPT、Claude等）==========
         http_client = httpx.Client(timeout=120, follow_redirects=True)
         client = OpenAI(
             api_key=st.session_state.api_key,
@@ -504,24 +548,24 @@ if prompt:
                     message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
                     time.sleep(0.008)
                 message_placeholder.markdown(convert_latex_format(full_reply))
-        
-        # 保存AI回复
-        st.session_state.messages.append({"role": "assistant", "content": full_reply})
-        st.session_state.uploaded_files = []
-        
-        # 自动保存
-        save_conversation()
-        
-        st.rerun()
-        
-    except Exception as e:
-        st.error(f"错误: {str(e)}")
-        if "429" in str(e):
-            st.info("💡 API频率限制，请稍后再试...")
-        elif "401" in str(e):
-            st.info("💡 API密钥无效，请检查密钥是否正确")
-        elif "530" in str(e) or "1033" in str(e):
-            st.info("💡 API中转站暂时不可用，请稍后再试...")
-        import traceback
-        with st.expander("查看详细错误"):
-            st.code(traceback.format_exc())
+    
+    # 保存AI回复
+    st.session_state.messages.append({"role": "assistant", "content": full_reply})
+    st.session_state.uploaded_files = []
+    
+    # 自动保存
+    save_conversation()
+    
+    st.rerun()
+    
+except Exception as e:
+    st.error(f"错误: {str(e)}")
+    if "429" in str(e):
+        st.info("💡 API频率限制，请稍后再试...")
+    elif "401" in str(e):
+        st.info("💡 API密钥无效，请检查密钥是否正确")
+    elif "530" in str(e) or "1033" in str(e):
+        st.info("💡 API中转站暂时不可用，请稍后再试...")
+    import traceback
+    with st.expander("查看详细错误"):
+        st.code(traceback.format_exc())
