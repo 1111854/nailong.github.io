@@ -28,7 +28,9 @@ MODEL = "gpt-5.5"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORY_DIR = os.path.join(BASE_DIR, "chat_history")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-
+gif_path = os.path.join(BASE_DIR, "banner.gif")
+    if os.path.exists(gif_path):
+        st.image(gif_path)
 # 确保目录存在
 for dir_path in [HISTORY_DIR, UPLOAD_DIR]:
     if not os.path.exists(dir_path):
