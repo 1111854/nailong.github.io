@@ -12,9 +12,6 @@ import re
 import time
 import httpx
 import uuid
-gif_path = os.path.join(BASE_DIR, "banner.gif")
-if os.path.exists(gif_path):
-      st.image(gif_path)
 # ========== 页面配置 ==========
 st.set_page_config(
     page_title="奶龙ChatGPT",
@@ -30,7 +27,9 @@ MODEL = "gpt-5.5"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORY_DIR = os.path.join(BASE_DIR, "chat_history")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-
+gif_path = os.path.join(BASE_DIR, "banner.gif")
+if os.path.exists(gif_path):
+      st.image(gif_path)
 # ========== 用户隔离核心代码 ==========
 def get_user_session_id():
     """获取或创建当前用户的唯一会话ID（用于隔离）"""
