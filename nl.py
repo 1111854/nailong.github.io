@@ -514,9 +514,9 @@ if prompt:
             full_reply = ""
             with st.spinner("🐉 奶龙正在思考..."):
                 response = client.chat.completions.create(
-                    model=MODEL,
-                    messages=api_messages
-                )
+                     model=st.session_state.selected_model,  # ✅ 用用户选择的模型
+                     messages=api_messages
+                 )
                 full_reply = response.choices[0].message.content
                 
                 if is_broken_format(full_reply):
@@ -550,4 +550,3 @@ if prompt:
         import traceback
         with st.expander("查看详细错误"):
             st.code(traceback.format_exc())
-
