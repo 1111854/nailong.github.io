@@ -351,52 +351,70 @@ with col3:
         st.success("已清空上传的文件")
         st.rerun()
 
-# 文件上传区域
+# ========== 文件上传区域（改进版）==========
 if st.session_state.show_uploader:
     with st.container():
         st.markdown("### 📎 上传文件")
-        uploaded_file = st.file_uploader(
-            "选择文件",
+        st.caption("💡 提示：按住 Ctrl (Windows) 或 Cmd (Mac) 键可以选择多个文件")
+        
+        # 初始化已上传文件记录
+        if 'uploaded_keys' not in st.session_state:
+            st.session_state.uploaded_keys = []
+        
+        # 文件上传器（直接选择，支持多选）
+        uploaded_files = st.file_uploader(
+            "点击或拖拽文件到这里",
             type=['png', 'jpg', 'jpeg', 'pdf', 'docx', 'txt'],
-            key="main_file_uploader",
+            accept_multiple_files=True,
+            key="multi_file_uploader",
             label_visibility="collapsed"
         )
-        if uploaded_file is not None:
-            if 'last_uploaded' not in st.session_state:
-                st.session_state.last_uploaded = None
-            file_key = f"{uploaded_file.name}_{uploaded_file.size}"
-            if st.session_state.last_uploaded != file_key:
-                st.session_state.last_uploaded = file_key
-                file_info = {
-                    "name": uploaded_file.name,
-                    "type": uploaded_file.type,
-                    "size": uploaded_file.size,
-                    "content": None,
-                    "is_image": False
-                }
-                with st.spinner(f"正在处理 {uploaded_file.name}..."):
-                    if uploaded_file.type.startswith('image/'):
-                        st.image(uploaded_file, caption=uploaded_file.name, use_column_width=True)
-                        uploaded_file.seek(0)
-                        file_info["content"] = encode_image(uploaded_file)
-                        file_info["is_image"] = True
-                    elif uploaded_file.type == 'application/pdf':
-                        uploaded_file.seek(0)
-                        file_info["content"] = extract_text_from_pdf(uploaded_file)
-                    elif uploaded_file.type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-                        uploaded_file.seek(0)
-                        file_info["content"] = extract_text_from_docx(uploaded_file)
-                    elif uploaded_file.type == 'text/plain':
-                        uploaded_file.seek(0)
-                        file_info["content"] = extract_text_from_txt(uploaded_file)
-                    st.session_state.uploaded_files.append(file_info)
+        
+        # 处理上传的文件
+        if uploaded_files:
+            new_files = []
+            for uploaded_file in uploaded_files:
+                file_key = f"{uploaded_file.name}_{uploaded_file.size}"
+                
+                if file_key not in st.session_state.uploaded_keys:
+                    st.session_state.uploaded_keys.append(file_key)
+                    
+                    file_info = {
+                        "name": uploaded_file.name,
+                        "type": uploaded_file.type,
+                        "size": uploaded_file.size,
+                        "content": None,
+                        "is_image": False
+                    }
+                    
+                    with st.spinner(f"正在处理 {uploaded_file.name}..."):
+                        if uploaded_file.type.startswith('image/'):
+                            st.image(uploaded_file, caption=uploaded_file.name, width=150)
+                            uploaded_file.seek(0)
+                            file_info["content"] = encode_image(uploaded_file)
+                            file_info["is_image"] = True
+                        elif uploaded_file.type == 'application/pdf':
+                            uploaded_file.seek(0)
+                            file_info["content"] = extract_text_from_pdf(uploaded_file)
+                        elif uploaded_file.type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                            uploaded_file.seek(0)
+                            file_info["content"] = extract_text_from_docx(uploaded_file)
+                        elif uploaded_file.type == 'text/plain':
+                            uploaded_file.seek(0)
+                            file_info["content"] = extract_text_from_txt(uploaded_file)
+                        
+                        new_files.append(file_info)
+            
+            if new_files:
+                st.session_state.uploaded_files.extend(new_files)
                 st.session_state.show_uploader = False
-                st.success(f"✅ 已添加 {uploaded_file.name}")
+                st.success(f"✅ 已添加 {len(new_files)} 个文件")
                 st.rerun()
-        if st.button("❌ 关闭", use_container_width=True):
+        
+        # 关闭按钮
+        if st.button("❌ 关闭上传面板", use_container_width=True):
             st.session_state.show_uploader = False
             st.rerun()
-
 # ========== 处理消息 ==========
 if prompt:
     if not st.session_state.api_key:
