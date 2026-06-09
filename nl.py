@@ -12,6 +12,7 @@ import re
 import time
 import httpx
 import uuid
+
 # ========== 页面配置 ==========
 st.set_page_config(
     page_title="奶龙ChatGPT",
@@ -22,7 +23,6 @@ st.set_page_config(
 # ========== 配置 ==========
 API_URL = "https://mynewapi.n1neman.fun/v1"
 MODEL = "gpt-5.5"
-
 # 基础目录
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORY_DIR = os.path.join(BASE_DIR, "chat_history")
@@ -229,6 +229,28 @@ with st.sidebar:
     
     st.markdown("---")
     
+    st.subheader("🎭 AI角色设定")
+    
+    if 'system_prompt' not in st.session_state:
+        st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
+    
+    new_prompt = st.text_area(
+        "自定义系统提示词",
+        value=st.session_state.system_prompt,
+        height=150
+    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("💾 保存提示词", use_container_width=True):
+            st.session_state.system_prompt = new_prompt
+            st.success("已保存！")
+            st.rerun()
+    with col2:
+        if st.button("🔄 重置", use_container_width=True):
+            st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
+            st.success("已重置")
+            st.rerun()
     st.subheader("💬 对话管理")
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -462,3 +484,4 @@ if prompt:
         import traceback
         with st.expander("查看详细错误"):
             st.code(traceback.format_exc())
+
