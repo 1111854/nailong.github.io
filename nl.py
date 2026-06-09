@@ -405,108 +405,81 @@ if prompt:
     if not st.session_state.api_key:
         st.error("请先在侧边栏设置API密钥")
         st.stop()
-    
+
     files_to_attach = st.session_state.uploaded_files.copy()
-    
+
     with st.chat_message("user", avatar=get_avatar("user")):
         if files_to_attach:
             st.caption("📎 附件:")
             for file in files_to_attach:
                 st.write(f"- {file['name']}")
         st.markdown(prompt)
-    
+
     user_message = {"role": "user", "content": prompt}
     if files_to_attach:
         user_message["files"] = files_to_attach
     st.session_state.messages.append(user_message)
-    
+
     try:
         save_conversation()
-        
-        is_gemini = st.session_state.selected_model.startswith("gemini")
-        
-        if is_gemini:
-            # Gemini 调用
-            genai.configure(api_key=st.session_state.api_key)
-            gemini_history = []
-            for msg in st.session_state.messages[:-1]:
-                role = "user" if msg["role"] == "user" else "model"
-                gemini_history.append({"role": role, "parts": [msg["content"]]})
-            model = genai.GenerativeModel(
-                model_name=st.session_state.selected_model,
-                system_instruction=st.session_state.system_prompt
-            )
-            chat = model.start_chat(history=gemini_history)
-            
-            with st.chat_message("assistant", avatar=get_avatar("assistant")):
-                message_placeholder = st.empty()
-                full_reply = ""
-                with st.spinner("🐉 奶龙正在思考..."):
-                    response = chat.send_message(prompt)
-                    full_reply = response.text
-                    displayed = ""
-                    for char in full_reply:
-                        displayed += char
-                        converted = convert_latex_format(displayed)
-                        message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
-                        time.sleep(0.008)
-                    message_placeholder.markdown(convert_latex_format(full_reply))
-        else:
-            # OpenAI 格式调用
-            http_client = httpx.Client(timeout=120, follow_redirects=True)
-            client = OpenAI(
-                api_key=st.session_state.api_key,
-                base_url=API_URL,
-                http_client=http_client
-            )
-            
-            api_messages = [{"role": "system", "content": st.session_state.system_prompt}]
-            for msg in st.session_state.messages[:-1]:
-                api_messages.append({"role": msg["role"], "content": msg["content"]})
-            
-            current_content = [{"type": "text", "text": prompt}]
-            for file in files_to_attach:
-                if file.get("is_image") and file.get("content"):
-                    current_content.append({
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{file['content']}"}
-                    })
-                elif file.get("content"):
-                    current_content.append({
-                        "type": "text",
-                        "text": f"\n\n[文件内容: {file['name']}]\n{file['content']}\n[/文件内容]"
-                    })
-            
-            api_messages.append({
-                "role": "user",
-                "content": current_content if len(current_content) > 1 else prompt
-            })
-            
-            with st.chat_message("assistant", avatar=get_avatar("assistant")):
-                message_placeholder = st.empty()
-                full_reply = ""
-                with st.spinner("🐉 奶龙正在思考..."):
-                    response = client.chat.completions.create(
-                        model=st.session_state.selected_model,
-                        messages=api_messages
-                    )
-                    full_reply = response.choices[0].message.content
-                    if is_broken_format(full_reply):
-                        fixed = re.sub(r'\s+', '', full_reply)
-                        full_reply = f'$$\n{fixed}\n$$'
-                    displayed = ""
-                    for char in full_reply:
-                        displayed += char
-                        converted = convert_latex_format(displayed)
-                        message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
-                        time.sleep(0.008)
-                    message_placeholder.markdown(convert_latex_format(full_reply))
-        
+
+        http_client = httpx.Client(timeout=120, follow_redirects=True)
+        client = OpenAI(
+            api_key=st.session_state.api_key,
+            base_url=API_URL,
+            http_client=http_client
+        )
+
+        api_messages = [{"role": "system", "content": st.session_state.system_prompt}]
+        for msg in st.session_state.messages[:-1]:
+            api_messages.append({"role": msg["role"], "content": msg["content"]})
+
+        current_content = [{"type": "text", "text": prompt}]
+        for file in files_to_attach:
+            if file.get("is_image") and file.get("content"):
+                current_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{file['content']}"}
+                })
+            elif file.get("content"):
+                current_content.append({
+                    "type": "text",
+                    "text": f"\n\n[文件内容: {file['name']}]\n{file['content']}\n[/文件内容]"
+                })
+
+        api_messages.append({
+            "role": "user",
+            "content": current_content if len(current_content) > 1 else prompt
+        })
+
+        with st.chat_message("assistant", avatar=get_avatar("assistant")):
+            message_placeholder = st.empty()
+            full_reply = ""
+            with st.spinner("🐉 奶龙正在思考..."):
+                response = client.chat.completions.create(
+                    model=st.session_state.selected_model,
+                    messages=api_messages
+                )
+                full_reply = response.choices[0].message.content or ""
+
+                if is_broken_format(full_reply):
+                    fixed = re.sub(r'\s+', '', full_reply)
+                    full_reply = f'$$\n{fixed}\n$$'
+
+                displayed = ""
+                for char in full_reply:
+                    displayed += char
+                    converted = convert_latex_format(displayed)
+                    message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
+                    time.sleep(0.008)
+
+                message_placeholder.markdown(convert_latex_format(full_reply))
+
         st.session_state.messages.append({"role": "assistant", "content": full_reply})
         st.session_state.uploaded_files = []
         save_conversation()
         st.rerun()
-        
+
     except Exception as e:
         st.error(f"错误: {str(e)}")
         if "429" in str(e):
