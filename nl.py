@@ -12,7 +12,7 @@ import re
 import time
 import httpx
 import uuid
-from utilis import AVAILABLE_MODELS, DEFAULT_MODEL
+from utils import AVAILABLE_MODELS, DEFAULT_MODEL
 # ========== 页面配置 ==========
 st.set_page_config(
     page_title="奶龙ChatGPT",
