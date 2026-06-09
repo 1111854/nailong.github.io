@@ -11,6 +11,7 @@ import time
 import httpx
 import uuid
 import google.generativeai as genai
+from tavily import TavilyClient
 
 # 导入模型配置
 from utils import AVAILABLE_MODELS, DEFAULT_MODEL
@@ -107,6 +108,32 @@ def render_with_latex(content):
         except Exception:
             st.text(content)
 
+# ========== 联网搜索函数 ==========
+def search_web(query, max_results=3):
+    tavily_key = os.environ.get('TAPI', '')
+    if not tavily_key:
+        return []
+    try:
+        client = TavilyClient(api_key=tavily_key)
+        response = client.search(
+            query=query, 
+            search_depth="basic", 
+            max_results=max_results, 
+            include_answer=True
+        )
+        results = []
+        if response.get('answer'):
+            results.append({'title': '📌 AI 总结', 'snippet': response['answer']})
+        for item in response.get('results', [])[:max_results]:
+            results.append({
+                'title': item.get('title', '无标题'), 
+                'snippet': item.get('content', '无内容')[:300]
+            })
+        return results
+    except Exception as e:
+        print(f"搜索失败: {e}")
+        return []
+
 # ========== Session State初始化 ==========
 if 'messages' not in st.session_state:
     st.session_state.messages = []
@@ -122,6 +149,8 @@ if 'system_prompt' not in st.session_state:
     st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = DEFAULT_MODEL
+if 'web_search' not in st.session_state:
+    st.session_state.web_search = False
 
 # ========== 保存和加载函数 ==========
 def save_conversation():
@@ -217,6 +246,15 @@ with st.sidebar:
         st.rerun()
     
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
+    st.markdown("---")
+    
+    # 联网搜索开关
+    st.session_state.web_search = st.toggle(
+        "🌐 开启联网搜索", 
+        value=st.session_state.web_search,
+        help="开启后，奶龙可以搜索最新信息"
+    )
+    
     st.markdown("---")
     
     # 自定义提示词
@@ -430,7 +468,26 @@ if prompt:
             http_client=http_client
         )
 
-        api_messages = [{"role": "system", "content": st.session_state.system_prompt}]
+        # ========== 联网搜索 ==========
+        search_context = ""
+        search_results = []
+        if st.session_state.web_search:
+            with st.spinner("🌐 正在搜索网络..."):
+                search_results = search_web(prompt)
+                if search_results:
+                    search_context = "\n\n【联网搜索结果】\n"
+                    for i, r in enumerate(search_results, 1):
+                        search_context += f"\n{i}. {r['title']}\n   {r['snippet']}\n"
+                    search_context += "\n请基于以上搜索结果回答用户问题。"
+                    st.toast(f"✅ 找到 {len(search_results)} 条搜索结果", icon="🌐")
+        
+        # 构建 API 消息（使用原始 system_prompt + 临时搜索上下文）
+        system_content = st.session_state.system_prompt
+        if search_context:
+            system_content += search_context
+        
+        api_messages = [{"role": "system", "content": system_content}]
+        
         for msg in st.session_state.messages[:-1]:
             api_messages.append({"role": msg["role"], "content": msg["content"]})
 
@@ -453,6 +510,14 @@ if prompt:
         })
 
         with st.chat_message("assistant", avatar=get_avatar("assistant")):
+            # 如果有搜索结果，先显示搜索来源
+            if search_results:
+                with st.expander("🌐 联网搜索结果", expanded=False):
+                    for i, r in enumerate(search_results[:5], 1):
+                        st.markdown(f"**{i}. {r['title']}**")
+                        st.caption(r['snippet'][:200])
+                        st.divider()
+            
             message_placeholder = st.empty()
             full_reply = ""
             with st.spinner("🐉 奶龙正在思考..."):
