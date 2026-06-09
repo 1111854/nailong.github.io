@@ -268,101 +268,101 @@ with st.sidebar:
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
     st.markdown("---")
     st.markdown("---")
-st.subheader("🧠 高级功能")
+    st.subheader("🧠 高级功能")
 
-col1, col2 = st.columns(2)
-with col1:
-    deep_think = st.toggle(
-        "🔍 深度思考", 
-        value=st.session_state.deep_think_enabled,
-        help="启用后，模型会展示详细的推理过程"
-    )
-    if deep_think != st.session_state.deep_think_enabled:
-        st.session_state.deep_think_enabled = deep_think
-
-with col2:
-    web_search = st.toggle(
-        "🌐 联网搜索", 
-        value=st.session_state.web_search_enabled,
-        help="启用后，模型可以搜索最新信息"
-    )
-    if web_search != st.session_state.web_search_enabled:
-        st.session_state.web_search_enabled = web_search
-
-if st.session_state.deep_think_enabled or st.session_state.web_search_enabled:
-    features = []
-    if st.session_state.deep_think_enabled:
-        features.append("🔍 深度思考")
-    if st.session_state.web_search_enabled:
-        features.append("🌐 联网搜索")
-    st.info(f"✅ 已启用: {' + '.join(features)}")
-    # 自定义提示词
-    st.subheader("🎭 AI角色设定")
-    new_prompt = st.text_area(
-        "自定义系统提示词",
-        value=st.session_state.system_prompt,
-        height=120
-    )
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("💾 保存提示词", use_container_width=True):
-            st.session_state.system_prompt = new_prompt
-            st.success("已保存！")
-            st.rerun()
+        deep_think = st.toggle(
+            "🔍 深度思考", 
+            value=st.session_state.deep_think_enabled,
+            help="启用后，模型会展示详细的推理过程"
+        )
+        if deep_think != st.session_state.deep_think_enabled:
+            st.session_state.deep_think_enabled = deep_think
+
     with col2:
-        if st.button("🔄 重置", use_container_width=True):
-            st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
-            st.success("已重置")
-            st.rerun()
+        web_search = st.toggle(
+            "🌐 联网搜索", 
+            value=st.session_state.web_search_enabled,
+            help="启用后，模型可以搜索最新信息"
+        )
+        if web_search != st.session_state.web_search_enabled:
+            st.session_state.web_search_enabled = web_search
+
+    if st.session_state.deep_think_enabled or st.session_state.web_search_enabled:
+        features = []
+        if st.session_state.deep_think_enabled:
+            features.append("🔍 深度思考")
+        if st.session_state.web_search_enabled:
+            features.append("🌐 联网搜索")
+        st.info(f"✅ 已启用: {' + '.join(features)}")
+        # 自定义提示词
+        st.subheader("🎭 AI角色设定")
+        new_prompt = st.text_area(
+            "自定义系统提示词",
+            value=st.session_state.system_prompt,
+            height=120
+        )
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("💾 保存提示词", use_container_width=True):
+                st.session_state.system_prompt = new_prompt
+                st.success("已保存！")
+                st.rerun()
+        with col2:
+            if st.button("🔄 重置", use_container_width=True):
+                st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
+                st.success("已重置")
+                st.rerun()
     
-    st.markdown("---")
+        st.markdown("---")
     
-    # 对话管理
-    st.subheader("💬 对话管理")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("✨ 新建", use_container_width=True):
-            st.session_state.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-            st.session_state.messages = []
-            st.session_state.uploaded_files = []
-            st.rerun()
-    with col2:
-        if st.button("🗑️ 删除当前", use_container_width=True):
-            if st.session_state.messages:
-                delete_conversation(st.session_state.current_session_id)
+        # 对话管理
+        st.subheader("💬 对话管理")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✨ 新建", use_container_width=True):
+                st.session_state.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
                 st.session_state.messages = []
                 st.session_state.uploaded_files = []
-                st.success("已删除当前对话")
                 st.rerun()
-            else:
-                st.warning("没有可删除的对话")
+        with col2:
+            if st.button("🗑️ 删除当前", use_container_width=True):
+                if st.session_state.messages:
+                    delete_conversation(st.session_state.current_session_id)
+                    st.session_state.messages = []
+                    st.session_state.uploaded_files = []
+                    st.success("已删除当前对话")
+                    st.rerun()
+                else:
+                    st.warning("没有可删除的对话")
     
-    st.markdown("---")
+        st.markdown("---")
     
-    conversations = list_conversations()
-    if conversations:
-        st.subheader("📜 历史记录")
-        for conv in conversations[:10]:
-            is_current = (conv["id"] == st.session_state.current_session_id)
-            prefix = "🟢 " if is_current else "📋 "
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                if st.button(f"{prefix}{conv['created_at']} ({conv['message_count']}条)", key=f"load_{conv['id']}", use_container_width=True):
-                    if load_conversation(conv['id']):
-                        st.success("加载成功")
-                        st.rerun()
-            with col2:
-                if st.button("❌", key=f"del_{conv['id']}"):
-                    if delete_conversation(conv['id']):
-                        st.success("已删除")
-                        if conv["id"] == st.session_state.current_session_id:
-                            st.session_state.messages = []
-                        st.rerun()
-    else:
-        st.info("暂无保存的对话")
+        conversations = list_conversations()
+        if conversations:
+            st.subheader("📜 历史记录")
+            for conv in conversations[:10]:
+                is_current = (conv["id"] == st.session_state.current_session_id)
+                prefix = "🟢 " if is_current else "📋 "
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    if st.button(f"{prefix}{conv['created_at']} ({conv['message_count']}条)", key=f"load_{conv['id']}", use_container_width=True):
+                        if load_conversation(conv['id']):
+                            st.success("加载成功")
+                            st.rerun()
+                with col2:
+                    if st.button("❌", key=f"del_{conv['id']}"):
+                        if delete_conversation(conv['id']):
+                            st.success("已删除")
+                            if conv["id"] == st.session_state.current_session_id:
+                                st.session_state.messages = []
+                            st.rerun()
+        else:
+            st.info("暂无保存的对话")
     
-    st.markdown("---")
-    st.caption(f"消息数: {len(st.session_state.messages)}")
+        st.markdown("---")
+        st.caption(f"消息数: {len(st.session_state.messages)}")
 
 # ========== 主界面 ==========
 if st.session_state.uploaded_files:
@@ -564,6 +564,7 @@ if prompt:
             thinking_container = st.container()
             answer_container = st.container()
             
+            # 先显示搜索和思考的占位（稍后填充）
             with st.spinner("🐉 奶龙正在生成回答..."):
                 # 调用API
                 response = client.chat.completions.create(
@@ -624,6 +625,15 @@ if prompt:
         save_conversation()
         st.rerun()
 
+    except Exception as e:
+        st.error(f"错误: {str(e)}")
+        if "429" in str(e):
+            st.info("💡 API频率限制，请稍后再试...")
+        elif "401" in str(e):
+            st.info("💡 API密钥无效，请检查密钥是否正确")
+        import traceback
+        with st.expander("查看详细错误"):
+            st.code(traceback.format_exc())
     except Exception as e:
         st.error(f"错误: {str(e)}")
         if "429" in str(e):
