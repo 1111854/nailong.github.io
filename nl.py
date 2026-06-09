@@ -10,6 +10,7 @@ import re
 import time
 import httpx
 import uuid
+import google.generativeai as genai
 
 # ========== 页面配置 ==========
 st.set_page_config(
@@ -29,7 +30,11 @@ AVAILABLE_MODELS = [
     "claude-sonnet-4-6",
     "claude-sonnet-4-6-thinking",
     "claude-opus-4-6",
-    "claude-haiku-4-5"
+    "claude-haiku-4-5",
+    "gemini-2.0-flash",
+    "gemini-2.0-pro",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro"
 ]
 DEFAULT_MODEL = "gpt-5.5"
 
@@ -446,126 +451,116 @@ if prompt:
         user_message["files"] = files_to_attach
     st.session_state.messages.append(user_message)
     
-try:
-    # 自动保存
-    save_conversation()
-    
-    # 判断是否 Gemini 模型
-    is_gemini = st.session_state.selected_model.startswith("gemini")
-    
-    if is_gemini:
-        # ========== Gemini 调用 ==========
-        # 配置 Gemini（使用相同的 API 密钥）
-        genai.configure(api_key=st.session_state.api_key)
+    try:
+        # 自动保存
+        save_conversation()
         
-        # 构建 Gemini 格式的历史消息
-        gemini_history = []
-        for msg in st.session_state.messages[:-1]:
-            role = "user" if msg["role"] == "user" else "model"
-            gemini_history.append({
-                "role": role,
-                "parts": [msg["content"]]
+        # 判断是否 Gemini 模型
+        is_gemini = st.session_state.selected_model.startswith("gemini")
+        
+        if is_gemini:
+            # ========== Gemini 调用 ==========
+            genai.configure(api_key=st.session_state.api_key)
+            
+            gemini_history = []
+            for msg in st.session_state.messages[:-1]:
+                role = "user" if msg["role"] == "user" else "model"
+                gemini_history.append({
+                    "role": role,
+                    "parts": [msg["content"]]
+                })
+            
+            model = genai.GenerativeModel(
+                model_name=st.session_state.selected_model,
+                system_instruction=st.session_state.system_prompt
+            )
+            chat = model.start_chat(history=gemini_history)
+            
+            with st.chat_message("assistant", avatar=get_avatar("assistant")):
+                message_placeholder = st.empty()
+                full_reply = ""
+                with st.spinner("🐉 奶龙正在思考..."):
+                    response = chat.send_message(prompt)
+                    full_reply = response.text
+                    
+                    displayed = ""
+                    for char in full_reply:
+                        displayed += char
+                        converted = convert_latex_format(displayed)
+                        message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
+                        time.sleep(0.008)
+                    message_placeholder.markdown(convert_latex_format(full_reply))
+        
+        else:
+            # ========== OpenAI 格式（GPT、Claude等）==========
+            http_client = httpx.Client(timeout=120, follow_redirects=True)
+            client = OpenAI(
+                api_key=st.session_state.api_key,
+                base_url=API_URL,
+                http_client=http_client
+            )
+            
+            api_messages = [{"role": "system", "content": st.session_state.system_prompt}]
+            for msg in st.session_state.messages[:-1]:
+                api_messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            current_content = [{"type": "text", "text": prompt}]
+            for file in files_to_attach:
+                if file.get("is_image") and file.get("content"):
+                    current_content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{file['content']}"}
+                    })
+                elif file.get("content"):
+                    current_content.append({
+                        "type": "text",
+                        "text": f"\n\n[文件内容: {file['name']}]\n{file['content']}\n[/文件内容]"
+                    })
+            
+            api_messages.append({
+                "role": "user",
+                "content": current_content if len(current_content) > 1 else prompt
             })
+            
+            with st.chat_message("assistant", avatar=get_avatar("assistant")):
+                message_placeholder = st.empty()
+                full_reply = ""
+                with st.spinner("🐉 奶龙正在思考..."):
+                    response = client.chat.completions.create(
+                        model=st.session_state.selected_model,
+                        messages=api_messages
+                    )
+                    full_reply = response.choices[0].message.content
+                    
+                    if is_broken_format(full_reply):
+                        fixed = re.sub(r'\s+', '', full_reply)
+                        full_reply = f'$$\n{fixed}\n$$'
+                    
+                    displayed = ""
+                    for char in full_reply:
+                        displayed += char
+                        converted = convert_latex_format(displayed)
+                        message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
+                        time.sleep(0.008)
+                    message_placeholder.markdown(convert_latex_format(full_reply))
         
-        # 创建 Gemini 模型
-        model = genai.GenerativeModel(
-            model_name=st.session_state.selected_model,
-            system_instruction=st.session_state.system_prompt
-        )
+        # 保存AI回复
+        st.session_state.messages.append({"role": "assistant", "content": full_reply})
+        st.session_state.uploaded_files = []
         
-        # 启动聊天
-        chat = model.start_chat(history=gemini_history)
+        # 自动保存
+        save_conversation()
         
-        # 获取回复
-        with st.chat_message("assistant", avatar=get_avatar("assistant")):
-            message_placeholder = st.empty()
-            full_reply = ""
-            with st.spinner("🐉 奶龙正在思考..."):
-                response = chat.send_message(prompt)
-                full_reply = response.text
-                
-                # 打字效果
-                displayed = ""
-                for char in full_reply:
-                    displayed += char
-                    converted = convert_latex_format(displayed)
-                    message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
-                    time.sleep(0.008)
-                message_placeholder.markdown(convert_latex_format(full_reply))
-    
-    else:
-        # ========== OpenAI 格式（GPT、Claude等）==========
-        http_client = httpx.Client(timeout=120, follow_redirects=True)
-        client = OpenAI(
-            api_key=st.session_state.api_key,
-            base_url=API_URL,
-            http_client=http_client
-        )
+        st.rerun()
         
-        # 构建消息
-        api_messages = [{"role": "system", "content": st.session_state.system_prompt}]
-        for msg in st.session_state.messages[:-1]:
-            api_messages.append({"role": msg["role"], "content": msg["content"]})
-        
-        current_content = [{"type": "text", "text": prompt}]
-        for file in files_to_attach:
-            if file.get("is_image") and file.get("content"):
-                current_content.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{file['content']}"}
-                })
-            elif file.get("content"):
-                current_content.append({
-                    "type": "text",
-                    "text": f"\n\n[文件内容: {file['name']}]\n{file['content']}\n[/文件内容]"
-                })
-        
-        api_messages.append({
-            "role": "user",
-            "content": current_content if len(current_content) > 1 else prompt
-        })
-        
-        # 获取回复
-        with st.chat_message("assistant", avatar=get_avatar("assistant")):
-            message_placeholder = st.empty()
-            full_reply = ""
-            with st.spinner("🐉 奶龙正在思考..."):
-                response = client.chat.completions.create(
-                    model=st.session_state.selected_model,
-                    messages=api_messages
-                )
-                full_reply = response.choices[0].message.content
-                
-                if is_broken_format(full_reply):
-                    fixed = re.sub(r'\s+', '', full_reply)
-                    full_reply = f'$$\n{fixed}\n$$'
-                
-                # 打字效果
-                displayed = ""
-                for char in full_reply:
-                    displayed += char
-                    converted = convert_latex_format(displayed)
-                    message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
-                    time.sleep(0.008)
-                message_placeholder.markdown(convert_latex_format(full_reply))
-    
-    # 保存AI回复
-    st.session_state.messages.append({"role": "assistant", "content": full_reply})
-    st.session_state.uploaded_files = []
-    
-    # 自动保存
-    save_conversation()
-    
-    st.rerun()
-    
-except Exception as e:
-    st.error(f"错误: {str(e)}")
-    if "429" in str(e):
-        st.info("💡 API频率限制，请稍后再试...")
-    elif "401" in str(e):
-        st.info("💡 API密钥无效，请检查密钥是否正确")
-    elif "530" in str(e) or "1033" in str(e):
-        st.info("💡 API中转站暂时不可用，请稍后再试...")
-    import traceback
-    with st.expander("查看详细错误"):
-        st.code(traceback.format_exc())
+    except Exception as e:
+        st.error(f"错误: {str(e)}")
+        if "429" in str(e):
+            st.info("💡 API频率限制，请稍后再试...")
+        elif "401" in str(e):
+            st.info("💡 API密钥无效，请检查密钥是否正确")
+        elif "530" in str(e) or "1033" in str(e):
+            st.info("💡 API中转站暂时不可用，请稍后再试...")
+        import traceback
+        with st.expander("查看详细错误"):
+            st.code(traceback.format_exc())
