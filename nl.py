@@ -408,6 +408,7 @@ if prompt:
 
     files_to_attach = st.session_state.uploaded_files.copy()
 
+    # 显示用户消息
     with st.chat_message("user", avatar=get_avatar("user")):
         if files_to_attach:
             st.caption("📎 附件:")
@@ -415,6 +416,7 @@ if prompt:
                 st.write(f"- {file['name']}")
         st.markdown(prompt)
 
+    # 保存用户消息
     user_message = {"role": "user", "content": prompt}
     if files_to_attach:
         user_message["files"] = files_to_attach
@@ -430,52 +432,118 @@ if prompt:
             http_client=http_client
         )
 
+        # 初始化变量
+        search_results = None
+        thinking_content = None
+        full_reply = ""
+
+        # 如果启用联网搜索，先进行搜索
+        if st.session_state.web_search_enabled:
+            with st.spinner("🌐 正在搜索网络..."):
+                search_results = search_web(prompt)
+                if search_results:
+                    st.toast(f"✅ 找到 {len(search_results)} 条搜索结果", icon="🌐")
+
+        # 构建API消息
         api_messages = [{"role": "system", "content": st.session_state.system_prompt}]
+        
+        # 添加搜索上下文
+        if st.session_state.web_search_enabled and search_results:
+            search_context = format_search_results(search_results)
+            api_messages[0]["content"] += search_context
+        
+        # 添加历史消息
         for msg in st.session_state.messages[:-1]:
-            api_messages.append({"role": msg["role"], "content": msg["content"]})
+            content = msg.get("content", "")
+            api_messages.append({"role": msg["role"], "content": content})
+        
+        # 构建当前用户消息
+        user_prompt_content = prompt
+        if st.session_state.deep_think_enabled:
+            user_prompt_content = f"请进行深度思考，逐步推理后再回答。\n\n{prompt}"
+        
+        # 处理文件附件
+        if files_to_attach:
+            message_content = [{"type": "text", "text": user_prompt_content}]
+            for file in files_to_attach:
+                if file.get("is_image") and file.get("content"):
+                    message_content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{file['content']}"}
+                    })
+                elif file.get("content"):
+                    message_content.append({
+                        "type": "text",
+                        "text": f"\n\n[文件: {file['name']}]\n{file['content']}\n[/文件]"
+                    })
+            api_messages.append({"role": "user", "content": message_content})
+        else:
+            api_messages.append({"role": "user", "content": user_prompt_content})
 
-        current_content = [{"type": "text", "text": prompt}]
-        for file in files_to_attach:
-            if file.get("is_image") and file.get("content"):
-                current_content.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{file['content']}"}
-                })
-            elif file.get("content"):
-                current_content.append({
-                    "type": "text",
-                    "text": f"\n\n[文件内容: {file['name']}]\n{file['content']}\n[/文件内容]"
-                })
-
-        api_messages.append({
-            "role": "user",
-            "content": current_content if len(current_content) > 1 else prompt
-        })
-
+        # 显示AI回复
         with st.chat_message("assistant", avatar=get_avatar("assistant")):
-            message_placeholder = st.empty()
-            full_reply = ""
-            with st.spinner("🐉 奶龙正在思考..."):
+            # 创建容器
+            search_container = st.container()
+            thinking_container = st.container()
+            answer_container = st.container()
+            
+            # 先显示搜索和思考的占位（稍后填充）
+            with st.spinner("🐉 奶龙正在生成回答..."):
+                # 调用API
                 response = client.chat.completions.create(
                     model=st.session_state.selected_model,
                     messages=api_messages
                 )
                 full_reply = response.choices[0].message.content or ""
-
+                
+                # 尝试获取思考内容（如果API支持）
+                if hasattr(response.choices[0].message, 'reasoning_content'):
+                    thinking_content = response.choices[0].message.reasoning_content
+                
+                # 格式化回复
                 if is_broken_format(full_reply):
                     fixed = re.sub(r'\s+', '', full_reply)
                     full_reply = f'$$\n{fixed}\n$$'
+                
+                # 1. 在搜索容器显示搜索结果
+                with search_container:
+                    if search_results and len(search_results) > 0:
+                        st.markdown("### 🌐 联网搜索")
+                        st.caption(f"找到 {len(search_results)} 条相关信息")
+                        for i, result in enumerate(search_results, 1):
+                            with st.expander(f"{i}. {result['title']}", expanded=False):
+                                st.markdown(result['snippet'])
+                        st.divider()
+                
+                # 2. 在思考容器显示思考过程
+                with thinking_container:
+                    if thinking_content:
+                        with st.expander("🧠 深度思考过程", expanded=False):
+                            st.markdown(thinking_content)
+                        st.divider()
+                    elif st.session_state.deep_think_enabled:
+                        with st.expander("💡 思考提示", expanded=False):
+                            st.info("当前模型不支持显示详细思考过程，但已进行深度推理")
+                        st.divider()
+                
+                # 3. 在答案容器显示正式回答（打字机效果）
+                with answer_container:
+                    displayed = ""
+                    for char in full_reply:
+                        displayed += char
+                        converted = convert_latex_format(displayed)
+                        st.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
+                        time.sleep(0.008)
+                    
+                    st.markdown(convert_latex_format(full_reply))
 
-                displayed = ""
-                for char in full_reply:
-                    displayed += char
-                    converted = convert_latex_format(displayed)
-                    message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
-                    time.sleep(0.008)
-
-                message_placeholder.markdown(convert_latex_format(full_reply))
-
-        st.session_state.messages.append({"role": "assistant", "content": full_reply})
+        # 保存AI回复
+        assistant_message = {"role": "assistant", "content": full_reply}
+        if thinking_content:
+            assistant_message["thinking"] = thinking_content
+        st.session_state.messages.append(assistant_message)
+        
+        # 清空上传的文件
         st.session_state.uploaded_files = []
         save_conversation()
         st.rerun()
@@ -486,8 +554,6 @@ if prompt:
             st.info("💡 API频率限制，请稍后再试...")
         elif "401" in str(e):
             st.info("💡 API密钥无效，请检查密钥是否正确")
-        elif "530" in str(e) or "1033" in str(e):
-            st.info("💡 API中转站暂时不可用，请稍后再试...")
         import traceback
         with st.expander("查看详细错误"):
             st.code(traceback.format_exc())
