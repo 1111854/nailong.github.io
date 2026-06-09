@@ -312,51 +312,44 @@ for message in st.session_state.messages:
                 st.write(f"- {file['name']}")
         render_with_latex(message["content"])
 
-# ========== 自定义CSS - 把按钮放到输入框旁边 ==========
+# 自定义CSS
 st.markdown("""
 <style>
-    /* 移动端优化 */
     @media (max-width: 768px) {
-        /* 让输入框和按钮在同一行 */
-        .stChatInputContainer {
-            position: relative !important;
+        .stButton button {
+            font-size: 14px;
+            padding: 5px 10px;
         }
-        /* 自定义浮动按钮 */
-        .custom-upload-btn {
-            position: fixed !important;
-            bottom: 80px !important;
-            right: 80px !important;
-            z-index: 999 !important;
-        }
-        .custom-clear-btn {
-            position: fixed !important;
-            bottom: 80px !important;
-            right: 20px !important;
-            z-index: 999 !important;
-        }
+    }
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+    }
+    .typing-cursor {
+        animation: blink 1s infinite;
+        display: inline-block;
+        width: 2px;
+        height: 1.2em;
+        background-color: #00adb5;
+        margin-left: 2px;
+        vertical-align: middle;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 在底部固定位置放两个按钮
-if st.session_state.uploaded_files:
-    st.caption(f"📎 {len(st.session_state.uploaded_files)}个文件待发送")
-
-# 正常输入框
-prompt = st.chat_input("输入消息...")
-
-# 在输入框旁边放按钮（通过列布局模拟）
-col_btn1, col_btn2, col_empty = st.columns([1, 1, 8])
-with col_btn1:
-    if st.button("📎", help="上传文件"):
+# 输入区域
+col1, col2, col3 = st.columns([15, 1, 1])
+with col1:
+    prompt = st.chat_input("输入消息... (点击右侧按钮上传文件)")
+with col2:
+    if st.button("📎", key="toggle_uploader", use_container_width=True, help="上传文件"):
         st.session_state.show_uploader = not st.session_state.show_uploader
         st.rerun()
-with col_btn2:
-    if st.button("🗑️", help="清空文件"):
+with col3:
+    if st.button("🗑️", key="clear_files_btn", use_container_width=True, help="清空所有上传的文件"):
         st.session_state.uploaded_files = []
-        st.success("已清空")
+        st.success("已清空上传的文件")
         st.rerun()
-prompt = st.chat_input("输入消息...")
 
 # ========== 文件上传区域（改进版）==========
 if st.session_state.show_uploader:
