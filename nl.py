@@ -475,9 +475,9 @@ if prompt:
     st.session_state.messages.append(user_message)
     
     # 自动保存（用户消息后）
-    save_conversation()
-    
+   
     try:
+        save_conversation()
         # 判断是否 Gemini 模型
         is_gemini = st.session_state.selected_model.startswith("gemini")
         
