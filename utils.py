@@ -25,6 +25,29 @@ AVAILABLE_MODELS = [
     "gemini-3-pro-low",
     "gemini-3-pro-image-preview"
 ]
+# ========== 深度思考支持的模型 ==========
+THINKING_MODELS = [
+    "claude-sonnet-4-6-thinking",
+    "claude-sonnet-4-6",
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-opus-4-6",
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.5",
+    "gemini-3.1-pro-preview",
+    "gemini-3.5-flash-low",
+    "gemini-3.1-flash-lite"
+]
+
+# ========== 联网搜索支持的模型 ==========
+SEARCH_ENABLED_MODELS = [
+    "gpt-5.4",
+    "gpt-5.4-mini", 
+    "gpt-5.5",
+    "claude-sonnet-4-6",
+    "gemini-3.5-flash-low"
+]
 
 # 默认模型
 DEFAULT_MODEL = "gpt-5.5"
