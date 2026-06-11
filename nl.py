@@ -55,7 +55,23 @@ def show_banner_gif():
         st.image(gif_path)
     else:
         st.caption("🐉 奶龙陪你聊天~")
-
+# ========== Session State初始化 ==========
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
+if 'api_key' not in st.session_state:
+    st.session_state.api_key = None
+if 'uploaded_files' not in st.session_state:
+    st.session_state.uploaded_files = []
+if 'show_uploader' not in st.session_state:
+    st.session_state.show_uploader = False
+if 'current_session_id' not in st.session_state:
+    st.session_state.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+if 'system_prompt' not in st.session_state:
+    st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
+if 'selected_model' not in st.session_state:
+    st.session_state.selected_model = DEFAULT_MODEL
+if 'web_search' not in st.session_state:
+    st.session_state.web_search = False
 # ========== 文件处理函数 ==========
 def encode_image(image_file):
     return base64.b64encode(image_file.read()).decode('utf-8')
