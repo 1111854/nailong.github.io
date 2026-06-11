@@ -13,7 +13,6 @@ import httpx
 import uuid
 import google.generativeai as genai
 from tavily import TavilyClient
-from streamlit_copy_to_clipboard import copy_to_button  # ← 添加这一行
 
 # ========== 页面配置 ==========
 st.set_page_config(
