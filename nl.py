@@ -358,7 +358,6 @@ if st.session_state.uploaded_files:
                     st.rerun()
 
 # 显示消息历史
-# 显示消息历史
 for idx, message in enumerate(st.session_state.messages):
     avatar = get_avatar(message["role"])
     with st.chat_message(message["role"], avatar=avatar):
@@ -375,12 +374,9 @@ for idx, message in enumerate(st.session_state.messages):
             # 复制按钮
             with col1:
                 if st.button("📋", key=f"copy_{idx}", help="复制消息"):
-                    # 显示可复制的文本框
-                    with st.expander("📋 点击展开复制内容", expanded=True):
-                        st.code(message["content"], language="markdown", line_numbers=False)
-                        st.caption("选中上方文本，按 Ctrl+C 复制")
+                    st.toast("📋 请手动选中文本后按 Ctrl+C 复制", icon="📋")
             
-            # 重新生成按钮（仅对最后一条AI消息显示）
+            # 重新生成按钮
             with col2:
                 if idx == len(st.session_state.messages) - 1:
                     if st.button("🔄", key=f"regenerate_{idx}", help="重新生成"):
@@ -389,7 +385,7 @@ for idx, message in enumerate(st.session_state.messages):
                 else:
                     st.write("")
             
-            # 删除按钮（删除当前消息及之后的所有消息）
+            # 删除按钮
             with col3:
                 if st.button("🗑️", key=f"delete_msg_{idx}", help="删除从此处开始的对话"):
                     if delete_message_at_index(idx):
@@ -401,16 +397,14 @@ for idx, message in enumerate(st.session_state.messages):
             # 复制按钮
             with col1:
                 if st.button("📋", key=f"copy_user_{idx}", help="复制消息"):
-                    # 显示可复制的文本框
-                    with st.expander("📋 点击展开复制内容", expanded=True):
-                        st.code(message["content"], language="markdown", line_numbers=False)
-                        st.caption("选中上方文本，按 Ctrl+C 复制")
+                    st.toast("📋 请手动选中文本后按 Ctrl+C 复制", icon="📋")
             
-            # 删除按钮（删除当前消息及之后的所有消息）
+            # 删除按钮
             with col2:
                 if st.button("🗑️", key=f"delete_user_msg_{idx}", help="删除从此处开始的对话"):
                     if delete_message_at_index(idx):
                         st.rerun()
+
 st.markdown("""
 <style>
     @media (max-width: 768px) {
@@ -429,7 +423,6 @@ st.markdown("""
         margin-left: 2px;
         vertical-align: middle;
     }
-    /* 操作按钮样式 */
     .stButton button {
         background: transparent;
         border: none;
@@ -517,10 +510,8 @@ if st.session_state.show_uploader:
             st.rerun()
 
 # ========== 处理消息 ==========
-# 检查是否需要重新生成
 if hasattr(st.session_state, 'need_regenerate') and st.session_state.need_regenerate:
     st.session_state.need_regenerate = False
-    # 获取最后一条用户消息
     last_user_msg = None
     for msg in reversed(st.session_state.messages):
         if msg["role"] == "user":
@@ -533,7 +524,6 @@ if hasattr(st.session_state, 'need_regenerate') and st.session_state.need_regene
     else:
         prompt = None
 
-# 正常处理新消息
 if prompt:
     if not st.session_state.api_key:
         st.error("请先在侧边栏设置API密钥")
@@ -541,7 +531,6 @@ if prompt:
 
     files_to_attach = st.session_state.uploaded_files.copy()
 
-    # 显示用户消息（如果还没添加）
     if not hasattr(st.session_state, 'processing_regenerate') or not st.session_state.processing_regenerate:
         with st.chat_message("user", avatar=get_avatar("user")):
             if files_to_attach:
@@ -565,7 +554,6 @@ if prompt:
             http_client=http_client
         )
 
-        # ========== 联网搜索 ==========
         search_context = ""
         search_results = []
         if st.session_state.web_search:
@@ -578,7 +566,6 @@ if prompt:
                     search_context += "\n请基于以上搜索结果回答用户问题。"
                     st.toast(f"✅ 找到 {len(search_results)} 条搜索结果", icon="🌐")
         
-        # 构建 API 消息
         system_content = st.session_state.system_prompt
         if search_context:
             system_content += search_context
@@ -607,7 +594,6 @@ if prompt:
         })
 
         with st.chat_message("assistant", avatar=get_avatar("assistant")):
-            # 如果有搜索结果，先显示搜索来源
             if search_results:
                 with st.expander("🌐 联网搜索结果", expanded=False):
                     for i, r in enumerate(search_results[:5], 1):
