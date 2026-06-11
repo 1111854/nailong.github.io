@@ -14,7 +14,7 @@ import uuid
 import google.generativeai as genai
 from tavily import TavilyClient
 from streamlit_copy_to_clipboard import copy_to_button  # ← 添加这一行
-
+from utils import AVAILABLE_MODELS, DEFAULT_MODEL
 # ========== 页面配置 ==========
 st.set_page_config(
     page_title="奶龙ChatGPT",
