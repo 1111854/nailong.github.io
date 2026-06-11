@@ -400,12 +400,14 @@ for idx, message in enumerate(st.session_state.messages):
             col1, col2, col3 = st.columns([1, 1, 8])
             
             # 复制按钮
+          # 复制按钮
             with col1:
-                if st.button("📋", key=f"copy_user_{idx}", help="复制消息"):
-                    if copy_to_clipboard(message["content"]):
-                        st.toast("✅ 已复制到剪贴板", icon="📋")
-                    else:
-                        st.toast("❌ 复制失败", icon="❌")
+                copy_to_button(
+                    message["content"],
+                    text="📋",
+                    tooltip="复制消息",
+                    toasts=True
+                )
             
             # 删除按钮（删除当前消息及之后的所有消息）
             with col2:
