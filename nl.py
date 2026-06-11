@@ -12,7 +12,6 @@ import httpx
 import uuid
 import google.generativeai as genai
 from tavily import TavilyClient
-import pyperclip  # 新增：用于复制到剪贴板
 
 # 导入模型配置
 from utils import AVAILABLE_MODELS, DEFAULT_MODEL
@@ -155,11 +154,34 @@ def search_web(query, max_results=3):
 
 # ========== 消息操作函数 ==========
 def copy_to_clipboard(text):
-    """复制文本到剪贴板"""
+    """使用 JavaScript 复制文本到剪贴板"""
+    import json
+    import hashlib
+    
     try:
-        pyperclip.copy(text)
+        # 生成唯一ID避免冲突
+        unique_id = hashlib.md5(text.encode()).hexdigest()[:8]
+        
+        # JavaScript 复制代码
+        copy_js = f"""
+        <script>
+        (function() {{
+            function copyText{unique_id}() {{
+                const text = {json.dumps(text)};
+                navigator.clipboard.writeText(text).then(() => {{
+                    console.log('复制成功');
+                }}).catch(err => {{
+                    console.error('复制失败:', err);
+                }});
+            }}
+            copyText{unique_id}();
+        }})();
+        </script>
+        """
+        st.markdown(copy_js, unsafe_allow_html=True)
         return True
-    except:
+    except Exception as e:
+        print(f"复制失败: {e}")
         return False
 
 def regenerate_last_response():
