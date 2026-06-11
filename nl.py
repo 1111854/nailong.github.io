@@ -12,8 +12,6 @@ import httpx
 import uuid
 import google.generativeai as genai
 from tavily import TavilyClient
-
-# 导入模型配置
 from utils import AVAILABLE_MODELS, DEFAULT_MODEL
 
 # ========== 页面配置 ==========
@@ -30,9 +28,7 @@ API_URL = "https://mynewapi.n1neman.fun/v1"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORY_DIR = os.path.join(BASE_DIR, "chat_history")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-gif_path = os.path.join(BASE_DIR, "banner.gif")
-if os.path.exists(gif_path):
-        st.image(gif_path)
+
 # 确保目录存在
 for dir_path in [HISTORY_DIR, UPLOAD_DIR]:
     if not os.path.exists(dir_path):
@@ -54,6 +50,7 @@ def show_banner_gif():
         st.image(gif_path)
     else:
         st.caption("🐉 奶龙陪你聊天~")
+
 # ========== Session State初始化 ==========
 if 'messages' not in st.session_state:
     st.session_state.messages = []
@@ -71,6 +68,7 @@ if 'selected_model' not in st.session_state:
     st.session_state.selected_model = DEFAULT_MODEL
 if 'web_search' not in st.session_state:
     st.session_state.web_search = False
+
 # ========== 文件处理函数 ==========
 def encode_image(image_file):
     return base64.b64encode(image_file.read()).decode('utf-8')
@@ -128,7 +126,7 @@ def render_with_latex(content):
 
 # ========== 联网搜索函数 ==========
 def search_web(query, max_results=3):
-    tavily_key =  "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"
+    tavily_key = "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"
     if not tavily_key:
         return []
     try:
@@ -153,49 +151,14 @@ def search_web(query, max_results=3):
         return []
 
 # ========== 消息操作函数 ==========
-def copy_to_clipboard(text):
-    """使用 JavaScript 复制文本到剪贴板"""
-    import json
-    import hashlib
-    
-    try:
-        # 生成唯一ID避免冲突
-        unique_id = hashlib.md5(text.encode()).hexdigest()[:8]
-        
-        # JavaScript 复制代码
-        copy_js = f"""
-        <script>
-        (function() {{
-            function copyText{unique_id}() {{
-                const text = {json.dumps(text)};
-                navigator.clipboard.writeText(text).then(() => {{
-                    console.log('复制成功');
-                }}).catch(err => {{
-                    console.error('复制失败:', err);
-                }});
-            }}
-            copyText{unique_id}();
-        }})();
-        </script>
-        """
-        st.markdown(copy_js, unsafe_allow_html=True)
-        return True
-    except Exception as e:
-        print(f"复制失败: {e}")
-        return False
-
 def regenerate_last_response():
-    """重新生成最后一条AI回复"""
     if len(st.session_state.messages) >= 2:
-        # 删除最后一条AI回复
         st.session_state.messages.pop()
-        # 标记需要重新生成
         st.session_state.need_regenerate = True
         return True
     return False
 
 def delete_message_at_index(index):
-    """删除指定索引的消息及其之后的所有消息"""
     if 0 <= index < len(st.session_state.messages):
         st.session_state.messages = st.session_state.messages[:index]
         save_conversation()
@@ -280,7 +243,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 模型选择
     st.subheader("🤖 模型选择")
     
     selected_model = st.selectbox(
@@ -298,7 +260,6 @@ with st.sidebar:
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
     st.markdown("---")
     
-    # 联网搜索开关
     st.session_state.web_search = st.toggle(
         "🌐 开启联网搜索", 
         value=st.session_state.web_search,
@@ -307,7 +268,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 自定义提示词
     st.subheader("🎭 AI角色设定")
     new_prompt = st.text_area(
         "自定义系统提示词",
@@ -328,7 +288,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 对话管理
     st.subheader("💬 对话管理")
     col1, col2 = st.columns(2)
     with col1:
@@ -399,28 +358,21 @@ for idx, message in enumerate(st.session_state.messages):
                 st.write(f"- {file['name']}")
         render_with_latex(message["content"])
         
-        # 为每条消息添加操作按钮（类似DeepSeek）
         if message["role"] == "assistant":
             col1, col2, col3, col4 = st.columns([1, 1, 1, 6])
             
-            # 复制按钮
             with col1:
                 if st.button("📋", key=f"copy_{idx}", help="复制消息"):
-                    if copy_to_clipboard(message["content"]):
-                        st.toast("✅ 已复制到剪贴板", icon="📋")
-                    else:
-                        st.toast("❌ 复制失败", icon="❌")
+                    st.toast("📋 请手动选中文本后按 Ctrl+C 复制", icon="📋")
             
-            # 重新生成按钮（仅对最后一条AI消息显示）
             with col2:
                 if idx == len(st.session_state.messages) - 1:
                     if st.button("🔄", key=f"regenerate_{idx}", help="重新生成"):
                         if regenerate_last_response():
                             st.rerun()
                 else:
-                    st.write("")  # 占位符保持对齐
+                    st.write("")
             
-            # 删除按钮（删除当前消息及之后的所有消息）
             with col3:
                 if st.button("🗑️", key=f"delete_msg_{idx}", help="删除从此处开始的对话"):
                     if delete_message_at_index(idx):
@@ -429,15 +381,10 @@ for idx, message in enumerate(st.session_state.messages):
         elif message["role"] == "user":
             col1, col2, col3 = st.columns([1, 1, 8])
             
-            # 复制按钮
             with col1:
                 if st.button("📋", key=f"copy_user_{idx}", help="复制消息"):
-                    if copy_to_clipboard(message["content"]):
-                        st.toast("✅ 已复制到剪贴板", icon="📋")
-                    else:
-                        st.toast("❌ 复制失败", icon="❌")
+                    st.toast("📋 请手动选中文本后按 Ctrl+C 复制", icon="📋")
             
-            # 删除按钮（删除当前消息及之后的所有消息）
             with col2:
                 if st.button("🗑️", key=f"delete_user_msg_{idx}", help="删除从此处开始的对话"):
                     if delete_message_at_index(idx):
@@ -461,7 +408,6 @@ st.markdown("""
         margin-left: 2px;
         vertical-align: middle;
     }
-    /* 操作按钮样式 */
     .stButton button {
         background: transparent;
         border: none;
@@ -549,10 +495,8 @@ if st.session_state.show_uploader:
             st.rerun()
 
 # ========== 处理消息 ==========
-# 检查是否需要重新生成
 if hasattr(st.session_state, 'need_regenerate') and st.session_state.need_regenerate:
     st.session_state.need_regenerate = False
-    # 获取最后一条用户消息
     last_user_msg = None
     for msg in reversed(st.session_state.messages):
         if msg["role"] == "user":
@@ -565,7 +509,6 @@ if hasattr(st.session_state, 'need_regenerate') and st.session_state.need_regene
     else:
         prompt = None
 
-# 正常处理新消息
 if prompt:
     if not st.session_state.api_key:
         st.error("请先在侧边栏设置API密钥")
@@ -573,7 +516,6 @@ if prompt:
 
     files_to_attach = st.session_state.uploaded_files.copy()
 
-    # 显示用户消息（如果还没添加）
     if not hasattr(st.session_state, 'processing_regenerate') or not st.session_state.processing_regenerate:
         with st.chat_message("user", avatar=get_avatar("user")):
             if files_to_attach:
@@ -597,7 +539,6 @@ if prompt:
             http_client=http_client
         )
 
-        # ========== 联网搜索 ==========
         search_context = ""
         search_results = []
         if st.session_state.web_search:
@@ -610,7 +551,6 @@ if prompt:
                     search_context += "\n请基于以上搜索结果回答用户问题。"
                     st.toast(f"✅ 找到 {len(search_results)} 条搜索结果", icon="🌐")
         
-        # 构建 API 消息
         system_content = st.session_state.system_prompt
         if search_context:
             system_content += search_context
@@ -639,7 +579,6 @@ if prompt:
         })
 
         with st.chat_message("assistant", avatar=get_avatar("assistant")):
-            # 如果有搜索结果，先显示搜索来源
             if search_results:
                 with st.expander("🌐 联网搜索结果", expanded=False):
                     for i, r in enumerate(search_results[:5], 1):
