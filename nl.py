@@ -21,6 +21,7 @@ API_URL = "https://mynewapi.n1neman.fun/v1"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORY_DIR = os.path.join(BASE_DIR, "chat_history")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+gif_path = os.path.join(BASE_DIR, "banner.gif")
 if os.path.exists(gif_path):
         st.image(gif_path)
 for dir_path in [HISTORY_DIR, UPLOAD_DIR]:
@@ -85,7 +86,6 @@ def show_banner_gif():
         st.image(gif_path)
     else:
         st.caption("🐉 奶龙陪你聊天~")
-
 # ========== 文件处理函数 ==========
 def encode_image(image_file):
     return base64.b64encode(image_file.read()).decode('utf-8')
