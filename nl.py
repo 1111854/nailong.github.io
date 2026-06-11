@@ -12,6 +12,7 @@ import httpx
 import uuid
 import google.generativeai as genai
 from tavily import TavilyClient
+import pyperclip  # 新增：用于复制到剪贴板
 
 # 导入模型配置
 from utils import AVAILABLE_MODELS, DEFAULT_MODEL
@@ -136,23 +137,32 @@ def search_web(query, max_results=3):
         print(f"搜索失败: {e}")
         return []
 
-# ========== Session State初始化 ==========
-if 'messages' not in st.session_state:
-    st.session_state.messages = []
-if 'api_key' not in st.session_state:
-    st.session_state.api_key = None
-if 'uploaded_files' not in st.session_state:
-    st.session_state.uploaded_files = []
-if 'show_uploader' not in st.session_state:
-    st.session_state.show_uploader = False
-if 'current_session_id' not in st.session_state:
-    st.session_state.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-if 'system_prompt' not in st.session_state:
-    st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
-if 'selected_model' not in st.session_state:
-    st.session_state.selected_model = DEFAULT_MODEL
-if 'web_search' not in st.session_state:
-    st.session_state.web_search = False
+# ========== 消息操作函数 ==========
+def copy_to_clipboard(text):
+    """复制文本到剪贴板"""
+    try:
+        pyperclip.copy(text)
+        return True
+    except:
+        return False
+
+def regenerate_last_response():
+    """重新生成最后一条AI回复"""
+    if len(st.session_state.messages) >= 2:
+        # 删除最后一条AI回复
+        st.session_state.messages.pop()
+        # 标记需要重新生成
+        st.session_state.need_regenerate = True
+        return True
+    return False
+
+def delete_message_at_index(index):
+    """删除指定索引的消息及其之后的所有消息"""
+    if 0 <= index < len(st.session_state.messages):
+        st.session_state.messages = st.session_state.messages[:index]
+        save_conversation()
+        return True
+    return False
 
 # ========== 保存和加载函数 ==========
 def save_conversation():
@@ -288,6 +298,8 @@ with st.sidebar:
             st.session_state.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
             st.session_state.messages = []
             st.session_state.uploaded_files = []
+            if 'need_regenerate' in st.session_state:
+                del st.session_state.need_regenerate
             st.rerun()
     with col2:
         if st.button("🗑️ 删除当前", use_container_width=True):
@@ -339,7 +351,8 @@ if st.session_state.uploaded_files:
                     st.session_state.uploaded_files.pop(idx)
                     st.rerun()
 
-for message in st.session_state.messages:
+# 显示消息历史
+for idx, message in enumerate(st.session_state.messages):
     avatar = get_avatar(message["role"])
     with st.chat_message(message["role"], avatar=avatar):
         if "files" in message:
@@ -347,6 +360,50 @@ for message in st.session_state.messages:
             for file in message["files"]:
                 st.write(f"- {file['name']}")
         render_with_latex(message["content"])
+        
+        # 为每条消息添加操作按钮（类似DeepSeek）
+        if message["role"] == "assistant":
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 6])
+            
+            # 复制按钮
+            with col1:
+                if st.button("📋", key=f"copy_{idx}", help="复制消息"):
+                    if copy_to_clipboard(message["content"]):
+                        st.toast("✅ 已复制到剪贴板", icon="📋")
+                    else:
+                        st.toast("❌ 复制失败", icon="❌")
+            
+            # 重新生成按钮（仅对最后一条AI消息显示）
+            with col2:
+                if idx == len(st.session_state.messages) - 1:
+                    if st.button("🔄", key=f"regenerate_{idx}", help="重新生成"):
+                        if regenerate_last_response():
+                            st.rerun()
+                else:
+                    st.write("")  # 占位符保持对齐
+            
+            # 删除按钮（删除当前消息及之后的所有消息）
+            with col3:
+                if st.button("🗑️", key=f"delete_msg_{idx}", help="删除从此处开始的对话"):
+                    if delete_message_at_index(idx):
+                        st.rerun()
+        
+        elif message["role"] == "user":
+            col1, col2, col3 = st.columns([1, 1, 8])
+            
+            # 复制按钮
+            with col1:
+                if st.button("📋", key=f"copy_user_{idx}", help="复制消息"):
+                    if copy_to_clipboard(message["content"]):
+                        st.toast("✅ 已复制到剪贴板", icon="📋")
+                    else:
+                        st.toast("❌ 复制失败", icon="❌")
+            
+            # 删除按钮（删除当前消息及之后的所有消息）
+            with col2:
+                if st.button("🗑️", key=f"delete_user_msg_{idx}", help="删除从此处开始的对话"):
+                    if delete_message_at_index(idx):
+                        st.rerun()
 
 st.markdown("""
 <style>
@@ -365,6 +422,19 @@ st.markdown("""
         background-color: #00adb5;
         margin-left: 2px;
         vertical-align: middle;
+    }
+    /* 操作按钮样式 */
+    .stButton button {
+        background: transparent;
+        border: none;
+        padding: 0 5px;
+        font-size: 16px;
+        opacity: 0.6;
+        transition: opacity 0.3s;
+    }
+    .stButton button:hover {
+        opacity: 1;
+        background: transparent;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -441,6 +511,23 @@ if st.session_state.show_uploader:
             st.rerun()
 
 # ========== 处理消息 ==========
+# 检查是否需要重新生成
+if hasattr(st.session_state, 'need_regenerate') and st.session_state.need_regenerate:
+    st.session_state.need_regenerate = False
+    # 获取最后一条用户消息
+    last_user_msg = None
+    for msg in reversed(st.session_state.messages):
+        if msg["role"] == "user":
+            last_user_msg = msg
+            break
+    
+    if last_user_msg:
+        prompt = last_user_msg["content"]
+        files_to_attach = last_user_msg.get("files", [])
+    else:
+        prompt = None
+
+# 正常处理新消息
 if prompt:
     if not st.session_state.api_key:
         st.error("请先在侧边栏设置API密钥")
@@ -448,17 +535,19 @@ if prompt:
 
     files_to_attach = st.session_state.uploaded_files.copy()
 
-    with st.chat_message("user", avatar=get_avatar("user")):
-        if files_to_attach:
-            st.caption("📎 附件:")
-            for file in files_to_attach:
-                st.write(f"- {file['name']}")
-        st.markdown(prompt)
+    # 显示用户消息（如果还没添加）
+    if not hasattr(st.session_state, 'processing_regenerate') or not st.session_state.processing_regenerate:
+        with st.chat_message("user", avatar=get_avatar("user")):
+            if files_to_attach:
+                st.caption("📎 附件:")
+                for file in files_to_attach:
+                    st.write(f"- {file['name']}")
+            st.markdown(prompt)
 
-    user_message = {"role": "user", "content": prompt}
-    if files_to_attach:
-        user_message["files"] = files_to_attach
-    st.session_state.messages.append(user_message)
+        user_message = {"role": "user", "content": prompt}
+        if files_to_attach:
+            user_message["files"] = files_to_attach
+        st.session_state.messages.append(user_message)
 
     try:
         save_conversation()
@@ -483,7 +572,7 @@ if prompt:
                     search_context += "\n请基于以上搜索结果回答用户问题。"
                     st.toast(f"✅ 找到 {len(search_results)} 条搜索结果", icon="🌐")
         
-        # 构建 API 消息（使用原始 system_prompt + 临时搜索上下文）
+        # 构建 API 消息
         system_content = st.session_state.system_prompt
         if search_context:
             system_content += search_context
