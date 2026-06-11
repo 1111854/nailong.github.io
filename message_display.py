@@ -1,4 +1,5 @@
 ﻿import streamlit as st
+import os
 from latex_utils import render_with_latex
 
 def get_avatar(role, base_dir):
