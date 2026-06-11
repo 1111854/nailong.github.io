@@ -684,4 +684,4 @@ if prompt:
             st.info("💡 API中转站暂时不可用，请稍后再试...")
         import traceback
         with st.expander("查看详细错误"):
-            st.code(traceback.format_exc())还是复制不了啊
+            st.code(traceback.format_exc())
