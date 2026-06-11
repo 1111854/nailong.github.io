@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit.components.v1 as components  # ← 添加这一行
+import streamlit.components.v1 as components
 import os
 import json
 from openai import OpenAI
@@ -13,8 +13,7 @@ import httpx
 import uuid
 import google.generativeai as genai
 from tavily import TavilyClient
-# 导入模型配置
-from utils import AVAILABLE_MODELS, DEFAULT_MODEL
+from streamlit_copy_to_clipboard import copy_to_button  # ← 添加这一行
 
 # ========== 页面配置 ==========
 st.set_page_config(
@@ -152,51 +151,6 @@ def search_web(query, max_results=3):
         print(f"搜索失败: {e}")
         return []
 
-# ========== 消息操作函数 ==========
-def copy_to_clipboard(text):
-    """使用 JavaScript 复制文本到剪贴板（Streamlit Cloud 兼容版）"""
-    import json
-    import streamlit.components.v1 as components
-    
-    # 转义文本中的特殊字符
-    safe_text = json.dumps(text)
-    
-    # 使用 components.html 注入复制按钮和脚本
-    copy_html = f"""
-    <script>
-    (function() {{
-        // 直接复制到剪贴板
-        function copyText() {{
-            const text = {safe_text};
-            navigator.clipboard.writeText(text).then(() => {{
-                console.log('复制成功');
-                // 显示一个临时提示
-                const toast = document.createElement('div');
-                toast.textContent = '✅ 已复制！';
-                toast.style.position = 'fixed';
-                toast.style.bottom = '20px';
-                toast.style.right = '20px';
-                toast.style.backgroundColor = '#00adb5';
-                toast.style.color = 'white';
-                toast.style.padding = '10px 20px';
-                toast.style.borderRadius = '5px';
-                toast.style.zIndex = '9999';
-                toast.style.fontSize = '14px';
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 1500);
-            }}).catch(err => {{
-                console.error('复制失败:', err);
-                alert('复制失败，请手动复制');
-            }});
-        }}
-        copyText();
-    }})();
-    </script>
-    """
-    
-    # 使用 components.html 注入，高度设为0不占空间
-    components.html(copy_html, height=0)
-    return True
 
 def regenerate_last_response():
     """重新生成最后一条AI回复"""
@@ -418,12 +372,14 @@ for idx, message in enumerate(st.session_state.messages):
             col1, col2, col3, col4 = st.columns([1, 1, 1, 6])
             
             # 复制按钮
+            # 复制按钮
             with col1:
-                if st.button("📋", key=f"copy_{idx}", help="复制消息"):
-                    if copy_to_clipboard(message["content"]):
-                        st.toast("✅ 已复制到剪贴板", icon="📋")
-                    else:
-                        st.toast("❌ 复制失败", icon="❌")
+                copy_to_button(
+                    message["content"],
+                    text="📋",
+                    tooltip="复制消息",
+                    toasts=True
+                )
             
             # 重新生成按钮（仅对最后一条AI消息显示）
             with col2:
