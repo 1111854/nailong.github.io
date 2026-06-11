@@ -11,6 +11,7 @@ import PyPDF2
 import docx
 from tavily import TavilyClient
 from utils import AVAILABLE_MODELS, DEFAULT_MODEL
+from auth import register_user, login_user, save_user_conversation, load_user_conversations, delete_user_conversation
 
 # ========== 页面配置 ==========
 st.set_page_config(page_title="奶龙ChatGPT", page_icon="🤖", layout="wide")
@@ -25,23 +26,47 @@ for dir_path in [HISTORY_DIR, UPLOAD_DIR]:
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 
-# ========== Session State初始化 ==========
-if 'messages' not in st.session_state:
-    st.session_state.messages = []
-if 'api_key' not in st.session_state:
-    st.session_state.api_key = None
-if 'uploaded_files' not in st.session_state:
-    st.session_state.uploaded_files = []
-if 'show_uploader' not in st.session_state:
-    st.session_state.show_uploader = False
-if 'current_session_id' not in st.session_state:
-    st.session_state.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-if 'system_prompt' not in st.session_state:
-    st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
-if 'selected_model' not in st.session_state:
-    st.session_state.selected_model = DEFAULT_MODEL
-if 'web_search' not in st.session_state:
-    st.session_state.web_search = False
+# ========== 登录/注册界面 ==========
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+if 'username' not in st.session_state:
+    st.session_state.username = None
+
+if not st.session_state.logged_in:
+    st.title("🐉 奶龙ChatGPT")
+    st.markdown("### 欢迎！请登录或注册")
+    
+    tab1, tab2 = st.tabs(["登录", "注册"])
+    
+    with tab1:
+        with st.form("login_form"):
+            username = st.text_input("用户名", placeholder="输入您的用户名")
+            submitted = st.form_submit_button("登录")
+            if submitted and username:
+                success, msg = login_user(username)
+                if success:
+                    st.session_state.logged_in = True
+                    st.session_state.username = username
+                    st.session_state.messages = []
+                    # 加载该用户的对话历史
+                    user_conversations = load_user_conversations(username)
+                    st.session_state.user_conversations = user_conversations
+                    st.rerun()
+                else:
+                    st.error(msg)
+    
+    with tab2:
+        with st.form("register_form"):
+            new_username = st.text_input("用户名", placeholder="输入您想要的用户名")
+            submitted = st.form_submit_button("注册")
+            if submitted and new_username:
+                success, msg = register_user(new_username)
+                if success:
+                    st.success(msg + "，请登录")
+                else:
+                    st.error(msg)
+    
+    st.stop()
 
 # ========== 头像函数 ==========
 def get_avatar(role):
@@ -133,7 +158,6 @@ def search_web(query, max_results=3):
 
 # ========== 消息操作函数 ==========
 def copy_to_clipboard(text):
-    """手动复制提示"""
     st.toast("📋 请手动选中文本后按 Ctrl+C 复制", icon="📋")
     return True
 
@@ -151,69 +175,73 @@ def delete_message_at_index(index):
         return True
     return False
 
-# ========== 保存和加载函数 ==========
+# ========== 保存和加载函数（用户专属）==========
 def save_conversation():
     if not st.session_state.messages:
-        return None
+        return
     session_id = st.session_state.current_session_id
-    filename = os.path.join(HISTORY_DIR, f"chat_{session_id}.json")
-    data = {
+    conversation_data = {
         "id": session_id,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "messages": st.session_state.messages,
         "system_prompt": st.session_state.system_prompt
     }
-    try:
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        print(f"保存失败: {e}")
-        return False
+    save_user_conversation(st.session_state.username, session_id, conversation_data)
 
 def load_conversation(session_id):
-    filename = os.path.join(HISTORY_DIR, f"chat_{session_id}.json")
-    try:
-        with open(filename, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            st.session_state.messages = data["messages"]
-            st.session_state.current_session_id = session_id
-            if "system_prompt" in data:
-                st.session_state.system_prompt = data["system_prompt"]
-            return True
-    except Exception as e:
-        st.error(f"加载失败: {e}")
-        return False
+    user_conversations = load_user_conversations(st.session_state.username)
+    if session_id in user_conversations:
+        data = user_conversations[session_id]
+        st.session_state.messages = data["messages"]
+        st.session_state.current_session_id = session_id
+        if "system_prompt" in data:
+            st.session_state.system_prompt = data["system_prompt"]
+        return True
+    return False
 
 def delete_conversation(session_id):
-    filename = os.path.join(HISTORY_DIR, f"chat_{session_id}.json")
-    try:
-        os.remove(filename)
-        return True
-    except:
-        return False
+    return delete_user_conversation(st.session_state.username, session_id)
 
 def list_conversations():
+    user_conversations = load_user_conversations(st.session_state.username)
     conversations = []
-    if os.path.exists(HISTORY_DIR):
-        for file in os.listdir(HISTORY_DIR):
-            if file.startswith("chat_") and file.endswith(".json"):
-                filepath = os.path.join(HISTORY_DIR, file)
-                try:
-                    with open(filepath, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                        conversations.append({
-                            "id": data["id"],
-                            "created_at": data["created_at"],
-                            "message_count": len(data["messages"])
-                        })
-                except:
-                    pass
+    for session_id, data in user_conversations.items():
+        conversations.append({
+            "id": session_id,
+            "created_at": data["created_at"],
+            "message_count": len(data["messages"])
+        })
     conversations.sort(key=lambda x: x["created_at"], reverse=True)
     return conversations
 
+# ========== Session State初始化 ==========
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
+if 'api_key' not in st.session_state:
+    st.session_state.api_key = None
+if 'uploaded_files' not in st.session_state:
+    st.session_state.uploaded_files = []
+if 'show_uploader' not in st.session_state:
+    st.session_state.show_uploader = False
+if 'current_session_id' not in st.session_state:
+    st.session_state.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+if 'system_prompt' not in st.session_state:
+    st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
+if 'selected_model' not in st.session_state:
+    st.session_state.selected_model = DEFAULT_MODEL
+if 'web_search' not in st.session_state:
+    st.session_state.web_search = False
+
 # ========== 侧边栏 ==========
 with st.sidebar:
+    st.markdown(f"### 👤 用户：{st.session_state.username}")
+    if st.button("🚪 退出登录"):
+        st.session_state.logged_in = False
+        st.session_state.username = None
+        st.session_state.messages = []
+        st.rerun()
+    
+    st.markdown("---")
     st.markdown("### 🐉 奶龙ChatGPT")
     show_banner_gif()
     
@@ -235,30 +263,20 @@ with st.sidebar:
         "选择AI模型",
         options=AVAILABLE_MODELS,
         index=AVAILABLE_MODELS.index(st.session_state.selected_model) if st.session_state.selected_model in AVAILABLE_MODELS else 0,
-        help="从列表中选择模型"
     )
     if selected_model != st.session_state.selected_model:
         st.session_state.selected_model = selected_model
-        st.success(f"已切换到: {selected_model}")
         st.rerun()
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
     st.markdown("---")
     
     # 联网搜索开关
-    st.session_state.web_search = st.toggle(
-        "🌐 开启联网搜索", 
-        value=st.session_state.web_search,
-        help="开启后，奶龙可以搜索最新信息"
-    )
+    st.session_state.web_search = st.toggle("🌐 开启联网搜索", value=st.session_state.web_search)
     st.markdown("---")
     
     # 自定义提示词
     st.subheader("🎭 AI角色设定")
-    new_prompt = st.text_area(
-        "自定义系统提示词",
-        value=st.session_state.system_prompt,
-        height=120
-    )
+    new_prompt = st.text_area("自定义系统提示词", value=st.session_state.system_prompt, height=120)
     col1, col2 = st.columns(2)
     with col1:
         if st.button("💾 保存提示词", use_container_width=True):
@@ -268,7 +286,6 @@ with st.sidebar:
     with col2:
         if st.button("🔄 重置", use_container_width=True):
             st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
-            st.success("已重置")
             st.rerun()
     st.markdown("---")
     
@@ -343,7 +360,6 @@ for idx, message in enumerate(st.session_state.messages):
                 st.write(f"- {file['name']}")
         render_with_latex(message["content"])
         
-        # 操作按钮
         if message["role"] == "assistant":
             col1, col2, col3, col4 = st.columns([1, 1, 1, 6])
             with col1:
@@ -518,7 +534,6 @@ if prompt:
             http_client=http_client
         )
 
-        # 联网搜索
         search_context = ""
         search_results = []
         if st.session_state.web_search:
