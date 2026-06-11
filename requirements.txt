@@ -8,4 +8,4 @@ google-generativeai>=0.7.0
 beautifulsoup4==4.12.3
 requests==2.31.0
 tavily-python>=0.3.0
-
+streamlit-copy-to-clipboard>=0.1.0
