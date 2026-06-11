@@ -83,7 +83,7 @@ with col3:
         st.session_state.uploaded_files = []
         st.rerun()
 
-# 文件上传区域（代码较长但只在这里出现一次）
+# 文件上传区域
 if st.session_state.show_uploader:
     with st.container():
         st.markdown("### 📎 上传文件")
@@ -135,7 +135,6 @@ if hasattr(st.session_state, 'need_regenerate') and st.session_state.need_regene
 if prompt and st.session_state.api_key:
     files_to_attach = st.session_state.uploaded_files.copy()
     
-    # 显示用户消息
     with st.chat_message("user", avatar="🐉"):
         if files_to_attach:
             st.caption("📎 附件:")
@@ -148,7 +147,6 @@ if prompt and st.session_state.api_key:
     try:
         save_conversation(st.session_state.messages, st.session_state.current_session_id, st.session_state.system_prompt)
         
-        # 联网搜索
         search_context = ""
         if st.session_state.web_search:
             with st.spinner("🌐 正在搜索网络..."):
@@ -162,7 +160,6 @@ if prompt and st.session_state.api_key:
         with st.chat_message("assistant", avatar="🤖"):
             msg_placeholder = st.empty()
             with st.spinner("🐉 奶龙正在思考..."):
-                # 构建消息历史（不含最后一条用户消息，因为已经单独处理）
                 history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[:-1]]
                 full_reply = send_message(history, st.session_state.selected_model, st.session_state.api_key, system_content)
                 if is_broken_format(full_reply):
