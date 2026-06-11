@@ -14,7 +14,7 @@ from utils import AVAILABLE_MODELS, DEFAULT_MODEL
 from auth import register_user, login_user, save_user_conversation, load_user_conversations, delete_user_conversation
 
 # ========== 页面配置 ==========
-st.set_page_config(page_title="奶龙ChatGPT", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="牢大GPT", page_icon="🤖", layout="wide")
 
 # ========== 配置 ==========
 API_URL = "https://mynewapi.n1neman.fun/v1"
@@ -35,7 +35,7 @@ if 'username' not in st.session_state:
     st.session_state.username = None
 
 if not st.session_state.logged_in:
-    st.title("🐉 奶龙ChatGPT")
+    st.title("牢大GPT")
     st.markdown("### 欢迎！请登录或注册")
     
     tab1, tab2 = st.tabs(["登录", "注册"])
@@ -85,7 +85,7 @@ def show_banner_gif():
     if os.path.exists(gif_path):
         print()
     else:
-        st.caption("🐉 奶龙陪你聊天~")
+        st.caption("牢大陪你肘击~")
 # ========== 文件处理函数 ==========
 def encode_image(image_file):
     return base64.b64encode(image_file.read()).decode('utf-8')
@@ -227,7 +227,7 @@ if 'show_uploader' not in st.session_state:
 if 'current_session_id' not in st.session_state:
     st.session_state.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
 if 'system_prompt' not in st.session_state:
-    st.session_state.system_prompt = "你是一个友好的AI助手，名叫奶龙。你会用生动、有趣的方式回答问题，公式必须用$$写在一行，如$$\\int_a^b fdx$$"
+    st.session_state.system_prompt = "你是科比·布莱恩特生于1978年8月23日，出生地是美国宾夕法尼亚州费城。他的父亲是前职业篮球运动员约翰·布莱恩特，而他的母亲则是意大利和美国的混血儿。科比从小就展现出了过人的篮球天赋，他的父亲在退役后也一直是他的导师和引导者，帮助他完成篮球方面的训练和教育。在1996年的NBA选秀中，科比被洛杉矶湖人队选中，从此开始了他的职业篮球生涯。他的职业生涯持续了20个赛季，期间他先后拿下了5个NBA总冠军、2个NBA总决赛MVP、4个全明星赛MVP等无数个荣誉。科比·布莱恩特也两次代表美国国家队参加奥运会，分别在2008年北京奥运会和2012年伦敦奥运会上获得了金牌。他不仅在比赛中的表现十分出色，在场下的影响力也是无可挑剔的，是一位非常有创造力的人。曾经写过小说、拍过短片、投资过创业公司等等。他有着非常深厚的文化底蕴和艺术追求，这让他的影响力远远超出了篮球这一范畴。他还积极参与公益事业，为慈善事业做出了很多贡献。但是，2019年底，科比·布莱恩特的自己的私人飞机上遭遇了一场致命的意外。他和其他8人一同离世，这场意外震惊了整个世界。他的离去让人们深感悲痛和痛惜，篮球界也失去了一位不可替代的传奇或许他人品不行，做过很多坏事，但不可否认的是，他是飞机史上一座不可遗忘的飞机碑,公式必须用$$写在一行，如$$\\int_a^b fdx$$"
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = DEFAULT_MODEL
 if 'web_search' not in st.session_state:
@@ -243,7 +243,7 @@ with st.sidebar:
         st.rerun()
     
     st.markdown("---")
-    st.markdown("### 🐉 奶龙ChatGPT")
+    st.markdown("###  牢大GPT")
     show_banner_gif()
     
     api_key = os.environ.get('CAPI')
@@ -583,7 +583,7 @@ if prompt:
             
             message_placeholder = st.empty()
             full_reply = ""
-            with st.spinner("🐉 奶龙正在思考..."):
+            with st.spinner("牢大正在肘击..."):
                 response = client.chat.completions.create(
                     model=st.session_state.selected_model,
                     messages=api_messages
