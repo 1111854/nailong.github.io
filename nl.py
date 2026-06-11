@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import os
 import json
 from openai import OpenAI
@@ -13,8 +12,8 @@ import httpx
 import uuid
 import google.generativeai as genai
 from tavily import TavilyClient
-from streamlit_copy_to_clipboard import copy_to_button  # ← 添加这一行
 from utils import AVAILABLE_MODELS, DEFAULT_MODEL
+
 # ========== 页面配置 ==========
 st.set_page_config(
     page_title="奶龙ChatGPT",
@@ -29,9 +28,7 @@ API_URL = "https://mynewapi.n1neman.fun/v1"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORY_DIR = os.path.join(BASE_DIR, "chat_history")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-gif_path = os.path.join(BASE_DIR, "banner.gif")
-if os.path.exists(gif_path):
-        st.image(gif_path)
+
 # 确保目录存在
 for dir_path in [HISTORY_DIR, UPLOAD_DIR]:
     if not os.path.exists(dir_path):
@@ -53,6 +50,7 @@ def show_banner_gif():
         st.image(gif_path)
     else:
         st.caption("🐉 奶龙陪你聊天~")
+
 # ========== Session State初始化 ==========
 if 'messages' not in st.session_state:
     st.session_state.messages = []
@@ -70,6 +68,7 @@ if 'selected_model' not in st.session_state:
     st.session_state.selected_model = DEFAULT_MODEL
 if 'web_search' not in st.session_state:
     st.session_state.web_search = False
+
 # ========== 文件处理函数 ==========
 def encode_image(image_file):
     return base64.b64encode(image_file.read()).decode('utf-8')
@@ -127,7 +126,7 @@ def render_with_latex(content):
 
 # ========== 联网搜索函数 ==========
 def search_web(query, max_results=3):
-    tavily_key =  "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"
+    tavily_key = "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"
     if not tavily_key:
         return []
     try:
@@ -151,19 +150,15 @@ def search_web(query, max_results=3):
         print(f"搜索失败: {e}")
         return []
 
-
+# ========== 消息操作函数 ==========
 def regenerate_last_response():
-    """重新生成最后一条AI回复"""
     if len(st.session_state.messages) >= 2:
-        # 删除最后一条AI回复
         st.session_state.messages.pop()
-        # 标记需要重新生成
         st.session_state.need_regenerate = True
         return True
     return False
 
 def delete_message_at_index(index):
-    """删除指定索引的消息及其之后的所有消息"""
     if 0 <= index < len(st.session_state.messages):
         st.session_state.messages = st.session_state.messages[:index]
         save_conversation()
@@ -248,7 +243,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 模型选择
     st.subheader("🤖 模型选择")
     
     selected_model = st.selectbox(
@@ -266,7 +260,6 @@ with st.sidebar:
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
     st.markdown("---")
     
-    # 联网搜索开关
     st.session_state.web_search = st.toggle(
         "🌐 开启联网搜索", 
         value=st.session_state.web_search,
@@ -275,7 +268,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 自定义提示词
     st.subheader("🎭 AI角色设定")
     new_prompt = st.text_area(
         "自定义系统提示词",
@@ -296,7 +288,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 对话管理
     st.subheader("💬 对话管理")
     col1, col2 = st.columns(2)
     with col1:
@@ -367,16 +358,13 @@ for idx, message in enumerate(st.session_state.messages):
                 st.write(f"- {file['name']}")
         render_with_latex(message["content"])
         
-        # 为每条消息添加操作按钮
         if message["role"] == "assistant":
             col1, col2, col3, col4 = st.columns([1, 1, 1, 6])
             
-            # 复制按钮
             with col1:
                 if st.button("📋", key=f"copy_{idx}", help="复制消息"):
                     st.toast("📋 请手动选中文本后按 Ctrl+C 复制", icon="📋")
             
-            # 重新生成按钮
             with col2:
                 if idx == len(st.session_state.messages) - 1:
                     if st.button("🔄", key=f"regenerate_{idx}", help="重新生成"):
@@ -385,7 +373,6 @@ for idx, message in enumerate(st.session_state.messages):
                 else:
                     st.write("")
             
-            # 删除按钮
             with col3:
                 if st.button("🗑️", key=f"delete_msg_{idx}", help="删除从此处开始的对话"):
                     if delete_message_at_index(idx):
@@ -394,12 +381,10 @@ for idx, message in enumerate(st.session_state.messages):
         elif message["role"] == "user":
             col1, col2, col3 = st.columns([1, 1, 8])
             
-            # 复制按钮
             with col1:
                 if st.button("📋", key=f"copy_user_{idx}", help="复制消息"):
                     st.toast("📋 请手动选中文本后按 Ctrl+C 复制", icon="📋")
             
-            # 删除按钮
             with col2:
                 if st.button("🗑️", key=f"delete_user_msg_{idx}", help="删除从此处开始的对话"):
                     if delete_message_at_index(idx):
