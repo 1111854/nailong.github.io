@@ -358,6 +358,7 @@ if st.session_state.uploaded_files:
                     st.rerun()
 
 # 显示消息历史
+# 显示消息历史
 for idx, message in enumerate(st.session_state.messages):
     avatar = get_avatar(message["role"])
     with st.chat_message(message["role"], avatar=avatar):
@@ -367,19 +368,17 @@ for idx, message in enumerate(st.session_state.messages):
                 st.write(f"- {file['name']}")
         render_with_latex(message["content"])
         
-        # 为每条消息添加操作按钮（类似DeepSeek）
+        # 为每条消息添加操作按钮
         if message["role"] == "assistant":
             col1, col2, col3, col4 = st.columns([1, 1, 1, 6])
             
             # 复制按钮
-            # 复制按钮
             with col1:
-                copy_to_button(
-                    message["content"],
-                    text="📋",
-                    tooltip="复制消息",
-                    toasts=True
-                )
+                if st.button("📋", key=f"copy_{idx}", help="复制消息"):
+                    # 显示可复制的文本框
+                    with st.expander("📋 点击展开复制内容", expanded=True):
+                        st.code(message["content"], language="markdown", line_numbers=False)
+                        st.caption("选中上方文本，按 Ctrl+C 复制")
             
             # 重新生成按钮（仅对最后一条AI消息显示）
             with col2:
@@ -388,7 +387,7 @@ for idx, message in enumerate(st.session_state.messages):
                         if regenerate_last_response():
                             st.rerun()
                 else:
-                    st.write("")  # 占位符保持对齐
+                    st.write("")
             
             # 删除按钮（删除当前消息及之后的所有消息）
             with col3:
@@ -400,21 +399,18 @@ for idx, message in enumerate(st.session_state.messages):
             col1, col2, col3 = st.columns([1, 1, 8])
             
             # 复制按钮
-          # 复制按钮
             with col1:
-                copy_to_button(
-                    message["content"],
-                    text="📋",
-                    tooltip="复制消息",
-                    toasts=True
-                )
+                if st.button("📋", key=f"copy_user_{idx}", help="复制消息"):
+                    # 显示可复制的文本框
+                    with st.expander("📋 点击展开复制内容", expanded=True):
+                        st.code(message["content"], language="markdown", line_numbers=False)
+                        st.caption("选中上方文本，按 Ctrl+C 复制")
             
             # 删除按钮（删除当前消息及之后的所有消息）
             with col2:
                 if st.button("🗑️", key=f"delete_user_msg_{idx}", help="删除从此处开始的对话"):
                     if delete_message_at_index(idx):
                         st.rerun()
-
 st.markdown("""
 <style>
     @media (max-width: 768px) {
