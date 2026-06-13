@@ -39,7 +39,6 @@ if not st.session_state.logged_in:
         with st.form("login_form"):
             username = st.text_input("用户名", placeholder="输入您的用户名")
             submitted = st.form_submit_button("登录")
-           ```python
             if submitted and username:
                 success, msg = login_user(username)
                 if success:
