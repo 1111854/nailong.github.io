@@ -15,7 +15,7 @@ from sidebar import render_sidebar
 from chat_core import stream_response, render_crash_message
 from conversation import save_conversation, load_conversation, delete_conversation, list_conversations
 from utils import get_openai_client, search_web, AVAILABLE_MODELS, DEFAULT_MODEL
-
+from connection_warmup import warmup_manager
 # ========== 页面配置 ==========
 st.set_page_config(page_title="牢大GPT", page_icon="🤖", layout="wide")
 
@@ -39,12 +39,22 @@ if not st.session_state.logged_in:
         with st.form("login_form"):
             username = st.text_input("用户名", placeholder="输入您的用户名")
             submitted = st.form_submit_button("登录")
+           ```python
             if submitted and username:
                 success, msg = login_user(username)
                 if success:
                     st.session_state.logged_in = True
                     st.session_state.username = username
                     st.session_state.messages = []
+                    
+                    # ===== 添加预热代码 =====
+                    if st.session_state.get('api_key'):
+                        warmup_manager.warmup_if_needed(
+                            st.session_state.api_key,
+                            st.session_state.api_url
+                        )
+                    # =====================
+                    
                     st.rerun()
                 else:
                     st.error(msg)
