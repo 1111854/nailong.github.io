@@ -2,6 +2,7 @@
 import streamlit as st
 import os
 import base64
+from config import BASE_DIR
 
 def get_avatar(role):
     """获取头像（支持自定义设置）"""
