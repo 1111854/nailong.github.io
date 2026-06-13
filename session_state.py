@@ -43,7 +43,6 @@ def init_session_state():
         st.session_state.user_avatar_image = None
     if 'user_avatar_url' not in st.session_state:
         st.session_state.user_avatar_url = ""
-    
     if 'ai_avatar' not in st.session_state:
         st.session_state.ai_avatar = "🤖"
     if 'ai_avatar_type' not in st.session_state:
