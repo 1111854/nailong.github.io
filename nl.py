@@ -17,7 +17,8 @@ from auth import register_user, login_user, save_user_conversation, load_user_co
 st.set_page_config(page_title="牢大GPT", page_icon="🤖", layout="wide")
 
 # ========== 配置 ==========
-API_URL = "https://mynewapi.n1neman.fun/v1"
+global API_URL = "https://mynewapi.n1neman.fun/v1"
+global api_key
 url1=API_URL
 url2="https://api.deepseek.com"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -275,13 +276,9 @@ with st.sidebar:
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
     st.markdown("---")
     if selected_model=="deepseek-v4-pro":
-        global API_URL
-        global api_key
         API_URL=url2
         api_key=api2
     else:
-        global API_URL
-        global api_key
         API_URL=url1
         api_key=api1
         
