@@ -1,4 +1,3 @@
-# message_display.py
 import streamlit as st
 import os
 from config import BASE_DIR
