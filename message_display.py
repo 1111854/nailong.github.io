@@ -4,7 +4,6 @@ import os
 from config import BASE_DIR
 
 def get_avatar(role):
-    """获取头像（使用本地文件）"""
     if role == "user":
         avatar_path = os.path.join(BASE_DIR, "User_avatar.png")
     else:
@@ -12,7 +11,7 @@ def get_avatar(role):
     
     if os.path.exists(avatar_path):
         return avatar_path
-    return "👤" if role == "user" else "🤖"
+    return "🐉" if role == "user" else "🤖"
 
 def copy_to_clipboard(text):
     st.toast("📋 请手动选中文本后按 Ctrl+C 复制", icon="📋")
