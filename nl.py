@@ -275,9 +275,13 @@ with st.sidebar:
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
     st.markdown("---")
     if selected_model=="deepseek-v4-pro":
+        global API_URL
+        global api_key
         API_URL=url2
         api_key=api2
     else:
+        global API_URL
+        global api_key
         API_URL=url1
         api_key=api1
         
