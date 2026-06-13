@@ -1,15 +1,15 @@
-# chat_core.py - 聊天核心逻辑
+# chat_core.py
 import streamlit as st
 import time
+import re
 import httpx
 from crash_messages import get_random_crash_message, get_random_quote
-from latex_utils import convert_latex_format, is_broken_format
 from config import UPDATE_INTERVAL
+from latex_utils import convert_latex_format, is_broken_format
 
 def stream_response(client, api_messages, selected_model, message_placeholder, status_placeholder):
     """流式响应处理"""
     full_reply = ""
-    start_time = time.time()
     first_token_received = False
     
     stream_response = client.chat.completions.create(
@@ -60,7 +60,7 @@ def render_crash_message(error_msg, error_type, message_placeholder):
     quote = get_random_quote()
     
     st.error(f"💀 **{death_msg}** 💀")
-    st.caption(f"🏀 牢大状态: RIP | 错误: {error_type}")
+    st.caption(f"🏀 牢大状态: RIP | 错误代码: {error_type}")
     st.markdown(f"> *{quote}*")
     
     with st.expander("🔧 坠机黑匣子记录 (点击展开)"):
