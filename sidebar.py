@@ -9,6 +9,94 @@ from conversation import list_conversations, load_conversation, delete_conversat
 def render_sidebar():
     with st.sidebar:
         st.markdown(f"### 👤 用户：{st.session_state.username}")
+        
+        # ===== 添加头像设置区域 =====
+        with st.expander("🎨 个性化设置（修改头像）", expanded=False):
+            st.markdown("### 头像设置")
+            
+            # 用户头像设置
+            st.markdown("**👤 用户头像**")
+            user_avatar_choice = st.selectbox(
+                "选择用户头像",
+                ["默认 👤", "自定义 Emoji", "上传图片", "图片 URL"],
+                key="user_avatar_choice",
+                label_visibility="collapsed"
+            )
+            
+            if user_avatar_choice == "默认 👤":
+                st.session_state.user_avatar = "👤"
+                st.session_state.user_avatar_type = "emoji"
+            elif user_avatar_choice == "自定义 Emoji":
+                user_emoji = st.text_input("输入 Emoji", value=st.session_state.get('user_avatar', '😎'), max_chars=2, key="user_emoji")
+                if user_emoji:
+                    st.session_state.user_avatar = user_emoji
+                    st.session_state.user_avatar_type = "emoji"
+                st.caption(f"当前: {st.session_state.user_avatar}")
+            elif user_avatar_choice == "上传图片":
+                uploaded_user_img = st.file_uploader(
+                    "上传头像图片", 
+                    type=['png', 'jpg', 'jpeg'],
+                    key="user_avatar_upload",
+                    label_visibility="collapsed"
+                )
+                if uploaded_user_img:
+                    # 保存图片到 session_state
+                    st.session_state.user_avatar_image = uploaded_user_img
+                    st.session_state.user_avatar_type = "image"
+                    st.image(uploaded_user_img, width=80, caption="预览")
+                elif st.session_state.get('user_avatar_type') == 'image':
+                    st.image(st.session_state.user_avatar_image, width=80, caption="当前头像")
+            elif user_avatar_choice == "图片 URL":
+                user_url = st.text_input("图片 URL", value=st.session_state.get('user_avatar_url', ''), key="user_avatar_url")
+                if user_url:
+                    st.session_state.user_avatar_url = user_url
+                    st.session_state.user_avatar_type = "url"
+                    st.image(user_url, width=80, caption="预览")
+            
+            st.markdown("---")
+            
+            # AI头像设置
+            st.markdown("**🤖 AI头像**")
+            ai_avatar_choice = st.selectbox(
+                "选择AI头像",
+                ["默认 🤖", "自定义 Emoji", "上传图片", "图片 URL"],
+                key="ai_avatar_choice",
+                label_visibility="collapsed"
+            )
+            
+            if ai_avatar_choice == "默认 🤖":
+                st.session_state.ai_avatar = "🤖"
+                st.session_state.ai_avatar_type = "emoji"
+            elif ai_avatar_choice == "自定义 Emoji":
+                ai_emoji = st.text_input("输入 Emoji", value=st.session_state.get('ai_avatar', '🏀'), max_chars=2, key="ai_emoji")
+                if ai_emoji:
+                    st.session_state.ai_avatar = ai_emoji
+                    st.session_state.ai_avatar_type = "emoji"
+                st.caption(f"当前: {st.session_state.ai_avatar}")
+            elif ai_avatar_choice == "上传图片":
+                uploaded_ai_img = st.file_uploader(
+                    "上传头像图片", 
+                    type=['png', 'jpg', 'jpeg'],
+                    key="ai_avatar_upload",
+                    label_visibility="collapsed"
+                )
+                if uploaded_ai_img:
+                    st.session_state.ai_avatar_image = uploaded_ai_img
+                    st.session_state.ai_avatar_type = "image"
+                    st.image(uploaded_ai_img, width=80, caption="预览")
+                elif st.session_state.get('ai_avatar_type') == 'image':
+                    st.image(st.session_state.ai_avatar_image, width=80, caption="当前头像")
+            elif ai_avatar_choice == "图片 URL":
+                ai_url = st.text_input("图片 URL", value=st.session_state.get('ai_avatar_url', ''), key="ai_avatar_url")
+                if ai_url:
+                    st.session_state.ai_avatar_url = ai_url
+                    st.session_state.ai_avatar_type = "url"
+                    st.image(ai_url, width=80, caption="预览")
+            
+            st.markdown("---")
+            st.caption("💡 提示：修改后立即生效，所有消息的头像都会更新")
+        
+        # ===== 原有的退出登录按钮 =====
         if st.button("🚪 退出登录"):
             st.session_state.logged_in = False
             st.session_state.username = None
