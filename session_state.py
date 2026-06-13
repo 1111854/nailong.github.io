@@ -35,7 +35,7 @@ def init_session_state():
         st.session_state.api_url = API_URL
     if 'logged_in' not in st.session_state:
         st.session_state.logged_in = False
-         if 'user_avatar' not in st.session_state:
+    if 'user_avatar' not in st.session_state:
         st.session_state.user_avatar = "👤"
     if 'user_avatar_type' not in st.session_state:
         st.session_state.user_avatar_type = "emoji"
