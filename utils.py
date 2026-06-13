@@ -23,8 +23,6 @@ AVAILABLE_MODELS = [
     "gemini-3.1-flash-lite",
     "gemini-3.1-flash-image-preview",
     "gemini-3.1-flash-image",
-    "gemini-3-pro-low",
-    "gemini-3-pro-image-preview"
 ]
 # ========== 深度思考支持的模型 ==========
 THINKING_MODELS = [
