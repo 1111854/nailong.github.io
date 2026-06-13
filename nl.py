@@ -597,25 +597,47 @@ if prompt:
             
             message_placeholder = st.empty()
             full_reply = ""
-            with st.spinner("牢大正在肘击..."):
+            
+            try:
+                # 流式输出
+                stream_response = client.chat.completions.create(
+                    model=st.session_state.selected_model,
+                    messages=api_messages,
+                    stream=True
+                )
+                
+                # 逐块处理并显示
+                for chunk in stream_response:
+                    if chunk.choices[0].delta.content:
+                        content_chunk = chunk.choices[0].delta.content
+                        full_reply += content_chunk
+                        
+                        if is_broken_format(full_reply):
+                            fixed = re.sub(r'\s+', '', full_reply)
+                            full_reply = f'$$\n{fixed}\n$$'
+                        
+                        converted = convert_latex_format(full_reply)
+                        message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
+                        time.sleep(0.003)  # 微调速度
+                
+                # 最终显示（移除光标效果）
+                final_converted = convert_latex_format(full_reply)
+                message_placeholder.markdown(final_converted)
+                
+            except Exception as stream_error:
+                # 流式失败时的降级方案
+                st.warning(f"流式输出失败，切换到普通模式: {str(stream_error)[:100]}")
                 response = client.chat.completions.create(
                     model=st.session_state.selected_model,
-                    messages=api_messages
+                    messages=api_messages,
+                    stream=False
                 )
                 full_reply = response.choices[0].message.content or ""
-
                 if is_broken_format(full_reply):
                     fixed = re.sub(r'\s+', '', full_reply)
                     full_reply = f'$$\n{fixed}\n$$'
-
-                displayed = ""
-                for char in full_reply:
-                    displayed += char
-                    converted = convert_latex_format(displayed)
-                    message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
-                    time.sleep(0.008)
-
-                message_placeholder.markdown(convert_latex_format(full_reply))
+                converted = convert_latex_format(full_reply)
+                message_placeholder.markdown(converted)
 
         st.session_state.messages.append({"role": "assistant", "content": full_reply})
         st.session_state.uploaded_files = []
@@ -632,4 +654,5 @@ if prompt:
             st.info("💡 API中转站暂时不可用，请稍后再试...")
         import traceback
         with st.expander("查看详细错误"):
+            st.code(traceback.format_exc())
             st.code(traceback.format_exc())
