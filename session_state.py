@@ -35,21 +35,5 @@ def init_session_state():
         st.session_state.api_url = API_URL
     if 'logged_in' not in st.session_state:
         st.session_state.logged_in = False
-    if 'user_avatar' not in st.session_state:
-        st.session_state.user_avatar = "👤"
-    if 'user_avatar_type' not in st.session_state:
-        st.session_state.user_avatar_type = "emoji"
-    if 'user_avatar_image' not in st.session_state:
-        st.session_state.user_avatar_image = None
-    if 'user_avatar_url' not in st.session_state:
-        st.session_state.user_avatar_url = ""
-    if 'ai_avatar' not in st.session_state:
-        st.session_state.ai_avatar = "🤖"
-    if 'ai_avatar_type' not in st.session_state:
-        st.session_state.ai_avatar_type = "emoji"
-    if 'ai_avatar_image' not in st.session_state:
-        st.session_state.ai_avatar_image = None
-    if 'ai_avatar_url' not in st.session_state:
-        st.session_state.ai_avatar_url = ""
     if 'username' not in st.session_state:
         st.session_state.username = None
