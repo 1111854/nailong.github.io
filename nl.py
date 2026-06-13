@@ -13,22 +13,80 @@ from tavily import TavilyClient
 from utils import AVAILABLE_MODELS, DEFAULT_MODEL
 from auth import register_user, login_user, save_user_conversation, load_user_conversations, delete_user_conversation
 
+# 自行维护的工具模块，如果你还没有这些文件，可以注释掉相关代码
+# 这里假设你已经有了可用模型列表和默认模型
+AVAILABLE_MODELS = [
+    "gpt-4o",
+    "gpt-4o-mini",
+    "deepseek-v4-pro",
+    # 请根据你的 api 中转站实际模型修改
+]
+DEFAULT_MODEL = "gpt-4o-mini"
+
 # ========== 页面配置 ==========
 st.set_page_config(page_title="牢大GPT", page_icon="🤖", layout="wide")
 
 # ========== 配置 ==========
 API_URL = "https://mynewapi.n1neman.fun/v1"
-url1=API_URL
-url2="https://api.deepseek.com"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORY_DIR = os.path.join(BASE_DIR, "chat_history")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-gif_path = os.path.join(BASE_DIR, "banner.gif")
-# if os.path.exists(gif_path):
-#         st.image(gif_path)
+
 for dir_path in [HISTORY_DIR, UPLOAD_DIR]:
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
+
+# ========== 简单的用户认证（示例） ==========
+# 如果你没有 auth 模块，可以用下面简单的替代
+def register_user(username):
+    users_file = os.path.join(BASE_DIR, "users.json")
+    users = {}
+    if os.path.exists(users_file):
+        with open(users_file, "r", encoding="utf-8") as f:
+            users = json.load(f)
+    if username in users:
+        return False, "用户名已存在"
+    users[username] = {"created_at": datetime.now().isoformat()}
+    with open(users_file, "w", encoding="utf-8") as f:
+        json.dump(users, f)
+    return True, "注册成功"
+
+def login_user(username):
+    users_file = os.path.join(BASE_DIR, "users.json")
+    if not os.path.exists(users_file):
+        return False, "用户不存在"
+    with open(users_file, "r", encoding="utf-8") as f:
+        users = json.load(f)
+    if username in users:
+        return True, "登录成功"
+    return False, "用户不存在"
+
+def save_user_conversation(username, session_id, data):
+    user_dir = os.path.join(HISTORY_DIR, username)
+    os.makedirs(user_dir, exist_ok=True)
+    file_path = os.path.join(user_dir, f"{session_id}.json")
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+
+def load_user_conversations(username):
+    user_dir = os.path.join(HISTORY_DIR, username)
+    if not os.path.exists(user_dir):
+        return {}
+    conversations = {}
+    for filename in os.listdir(user_dir):
+        if filename.endswith(".json"):
+            session_id = filename[:-5]
+            with open(os.path.join(user_dir, filename), "r", encoding="utf-8") as f:
+                conversations[session_id] = json.load(f)
+    return conversations
+
+def delete_user_conversation(username, session_id):
+    user_dir = os.path.join(HISTORY_DIR, username)
+    file_path = os.path.join(user_dir, f"{session_id}.json")
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        return True
+    return False
 
 # ========== 登录/注册界面 ==========
 if 'logged_in' not in st.session_state:
@@ -36,12 +94,13 @@ if 'logged_in' not in st.session_state:
 if 'username' not in st.session_state:
     st.session_state.username = None
 
+# 如果没登录，显示登录注册页面
 if not st.session_state.logged_in:
     st.title("牢大GPT")
     st.markdown("### 欢迎！请登录或注册")
-    
+
     tab1, tab2 = st.tabs(["登录", "注册"])
-    
+
     with tab1:
         with st.form("login_form"):
             username = st.text_input("用户名", placeholder="输入您的用户名")
@@ -52,13 +111,12 @@ if not st.session_state.logged_in:
                     st.session_state.logged_in = True
                     st.session_state.username = username
                     st.session_state.messages = []
-                    # 加载该用户的对话历史
                     user_conversations = load_user_conversations(username)
                     st.session_state.user_conversations = user_conversations
                     st.rerun()
                 else:
                     st.error(msg)
-    
+
     with tab2:
         with st.form("register_form"):
             new_username = st.text_input("用户名", placeholder="输入您想要的用户名")
@@ -69,7 +127,7 @@ if not st.session_state.logged_in:
                     st.success(msg + "，请登录")
                 else:
                     st.error(msg)
-    
+
     st.stop()
 
 # ========== 头像函数 ==========
@@ -82,12 +140,6 @@ def get_avatar(role):
         return avatar_path
     return "🐉" if role == "user" else "🤖"
 
-def show_banner_gif():
-    gif_path = os.path.join(BASE_DIR, "banner.gif")
-    if os.path.exists(gif_path):
-        print()
-    else:
-        st.caption("牢大陪你肘击~")
 # ========== 文件处理函数 ==========
 def encode_image(image_file):
     return base64.b64encode(image_file.read()).decode('utf-8')
@@ -99,7 +151,7 @@ def extract_text_from_pdf(file):
         for page in pdf_reader.pages:
             text += page.extract_text()
         return text[:3000]
-    except:
+    except Exception:
         return "无法读取PDF内容"
 
 def extract_text_from_docx(file):
@@ -107,16 +159,16 @@ def extract_text_from_docx(file):
         doc = docx.Document(file)
         text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
         return text[:3000]
-    except:
+    except Exception:
         return "无法读取Word文档内容"
 
 def extract_text_from_txt(file):
     try:
         return file.read().decode('utf-8')[:3000]
-    except:
+    except Exception:
         return file.read().decode('gbk')[:3000]
 
-# ========== LaTeX渲染函数 ==========
+# ========== LaTeX 渲染函数 ==========
 def is_broken_format(text):
     if not isinstance(text, str):
         return False
@@ -130,9 +182,9 @@ def is_broken_format(text):
 def convert_latex_format(text):
     if not isinstance(text, str):
         return text
-    text = re.sub(r'\\\[(.*?)\\\]', r'$$\1$$', text, flags=re.DOTALL)
-    text = re.sub(r'\\\((.*?)\\\)', r'$\1$', text, flags=re.DOTALL)
-    text = re.sub(r',(dx|dy|dz|dr|dt|d\\theta)', r'\,\1', text)
+    text = re.sub(r'$$(.?)$$', r'$$\1$$', text, flags=re.DOTALL)
+    text = re.sub(r'$(.?)$', r'$\1$', text, flags=re.DOTALL)
+    text = re.sub(r',(dx|dy|dz|dr|dt|d\theta)', r',\1', text)
     return text
 
 def render_with_latex(content):
@@ -143,20 +195,30 @@ def render_with_latex(content):
         except Exception:
             st.text(content)
 
-# ========== 联网搜索函数 ==========
+# ========== 联网搜索函数（使用环境变量） ==========
 def search_web(query, max_results=3):
-    tavily_key = "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"
+    tavily_key = os.environ.get("TAVILY_API_KEY")
+    if not tavily_key:
+        return []
     try:
         client = TavilyClient(api_key=tavily_key)
-        response = client.search(query=query, search_depth="basic", max_results=max_results, include_answer=True)
+        response = client.search(
+            query=query,
+            search_depth="basic",
+            max_results=max_results,
+            include_answer=True
+        )
         results = []
         if response.get('answer'):
             results.append({'title': '📌 AI 总结', 'snippet': response['answer']})
         for item in response.get('results', [])[:max_results]:
-            results.append({'title': item.get('title', '无标题'), 'snippet': item.get('content', '无内容')[:300]})
+            results.append({
+                'title': item.get('title', '无标题'),
+                'snippet': item.get('content', '无内容')[:300]
+            })
         return results
     except Exception as e:
-        print(f"搜索失败: {e}")
+        st.toast(f"搜索失败: {str(e)[:50]}", icon="⚠️")
         return []
 
 # ========== 消息操作函数 ==========
@@ -178,7 +240,7 @@ def delete_message_at_index(index):
         return True
     return False
 
-# ========== 保存和加载函数（用户专属）==========
+# ========== 保存和加载函数（用户专属） ==========
 def save_conversation():
     if not st.session_state.messages:
         return
@@ -217,7 +279,20 @@ def list_conversations():
     conversations.sort(key=lambda x: x["created_at"], reverse=True)
     return conversations
 
-# ========== Session State初始化 ==========
+# ========== 缓存 OpenAI 客户端 ==========
+@st.cache_resource
+def get_openai_client(api_key, api_url):
+    http_client = httpx.Client(
+        timeout=httpx.Timeout(60.0, connect=10.0),
+        follow_redirects=True
+    )
+    return OpenAI(
+        api_key=api_key,
+        base_url=api_url,
+        http_client=http_client
+    )
+
+# ========== Session State 初始化 ==========
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'api_key' not in st.session_state:
@@ -229,13 +304,23 @@ if 'show_uploader' not in st.session_state:
 if 'current_session_id' not in st.session_state:
     st.session_state.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
 if 'system_prompt' not in st.session_state:
-    st.session_state.system_prompt = "你是科比·布莱恩特生于1978年8月23日，出生地是美国宾夕法尼亚州费城。他的父亲是前职业篮球运动员约翰·布莱恩特，而他的母亲则是意大利和美国的混血儿。科比从小就展现出了过人的篮球天赋，他的父亲在退役后也一直是他的导师和引导者，帮助他完成篮球方面的训练和教育。在1996年的NBA选秀中，科比被洛杉矶湖人队选中，从此开始了他的职业篮球生涯。他的职业生涯持续了20个赛季，期间他先后拿下了5个NBA总冠军、2个NBA总决赛MVP、4个全明星赛MVP等无数个荣誉。科比·布莱恩特也两次代表美国国家队参加奥运会，分别在2008年北京奥运会和2012年伦敦奥运会上获得了金牌。他不仅在比赛中的表现十分出色，在场下的影响力也是无可挑剔的，是一位非常有创造力的人。曾经写过小说、拍过短片、投资过创业公司等等。他有着非常深厚的文化底蕴和艺术追求，这让他的影响力远远超出了篮球这一范畴。他还积极参与公益事业，为慈善事业做出了很多贡献。但是，2019年底，科比·布莱恩特的自己的私人飞机上遭遇了一场致命的意外。他和其他8人一同离世，这场意外震惊了整个世界。他的离去让人们深感悲痛和痛惜，篮球界也失去了一位不可替代的传奇或许他人品不行，做过很多坏事，但不可否认的是，他是飞机史上一座不可遗忘的飞机碑,公式必须用$$写在一行，如$$\\int_a^b fdx$$"
+    st.session_state.system_prompt = (
+        "你是科比·布莱恩特，1978年8月23日生于美国宾夕法尼亚州费城。"
+        "你的父亲是前职业篮球运动员约翰·布莱恩特，母亲是意大利和美国混血儿。"
+        "你从小就展现过人的篮球天赋，在1996年NBA选秀中被洛杉矶湖人队选中，"
+        "职业生涯20个赛季，获得5次NBA总冠军、2次总决赛MVP、4次全明星赛MVP等无数荣誉。"
+        "你也曾代表美国国家队在2008年和2012年奥运会上获得金牌。"
+        "场下你写小说、拍短片、投资创业公司，热衷公益事业。"
+        "2020年你因直升机事故离世。或许你有争议，但你是篮球史上一座无法磨灭的丰碑。"
+        "公式必须用$$写在一行，如$$\\int_a^b fdx$$"
+    )
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = DEFAULT_MODEL
 if 'web_search' not in st.session_state:
     st.session_state.web_search = False
 if 'api_url' not in st.session_state:
-    st.session_state.api_url = API_URL  # 存储到 session_state
+    st.session_state.api_url = API_URL
+
 # ========== 侧边栏 ==========
 with st.sidebar:
     st.markdown(f"### 👤 用户：{st.session_state.username}")
@@ -244,25 +329,27 @@ with st.sidebar:
         st.session_state.username = None
         st.session_state.messages = []
         st.rerun()
-    
+
     st.markdown("---")
-    st.markdown("###  牢大GPT")
-    show_banner_gif()
-    
-    api_key = os.environ.get('CAPI')
-    api1=api_key
-    api2=os.environ.get('DAPI')
-    if api_key:
-        st.session_state.api_key = api_key
+    st.markdown("### 🏀 牢大GPT")
+    # 如果有 banner.gif 就显示
+    gif_path = os.path.join(BASE_DIR, "banner.gif")
+    if os.path.exists(gif_path):
+        st.image(gif_path)
+
+    # API 密钥设置
+    api_key_env = os.environ.get('CAPI')
+    if api_key_env:
+        st.session_state.api_key = api_key_env
         st.success("✅ API密钥已设置")
     elif not st.session_state.api_key:
         api_key_input = st.text_input("输入API密钥", type="password", key="api_input")
         if api_key_input:
             st.session_state.api_key = api_key_input
             st.rerun()
-    
+
     st.markdown("---")
-    
+
     # 模型选择
     st.subheader("🤖 模型选择")
     selected_model = st.selectbox(
@@ -274,21 +361,23 @@ with st.sidebar:
         st.session_state.selected_model = selected_model
         st.rerun()
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
-    st.markdown("---")
+
+    # 根据模型设定 API 地址和密钥
     if selected_model == "deepseek-v4-pro":
-        st.session_state.api_url = url2
-    # 如果环境变量有 DAPI，自动切换 API key
+        st.session_state.api_url = "https://api.deepseek.com"
         if os.environ.get('DAPI'):
-           st.session_state.api_key = os.environ.get('DAPI')
+            st.session_state.api_key = os.environ.get('DAPI')
     else:
-        st.session_state.api_url = url1
+        st.session_state.api_url = API_URL
         if os.environ.get('CAPI'):
             st.session_state.api_key = os.environ.get('CAPI')
-        
+
+    st.markdown("---")
+
     # 联网搜索开关
     st.session_state.web_search = st.toggle("🌐 开启联网搜索", value=st.session_state.web_search)
     st.markdown("---")
-    
+
     # 自定义提示词
     st.subheader("🎭 AI角色设定")
     new_prompt = st.text_area("自定义系统提示词", value=st.session_state.system_prompt, height=120)
@@ -300,10 +389,19 @@ with st.sidebar:
             st.rerun()
     with col2:
         if st.button("🔄 重置", use_container_width=True):
-            st.session_state.system_prompt = "你是你是科比·布莱恩特生于1978年8月23日，出生地是美国宾夕法尼亚州费城。他的父亲是前职业篮球运动员约翰·布莱恩特，而他的母亲则是意大利和美国的混血儿。科比从小就展现出了过人的篮球天赋，他的父亲在退役后也一直是他的导师和引导者，帮助他完成篮球方面的训练和教育。在1996年的NBA选秀中，科比被洛杉矶湖人队选中，从此开始了他的职业篮球生涯。他的职业生涯持续了20个赛季，期间他先后拿下了5个NBA总冠军、2个NBA总决赛MVP、4个全明星赛MVP等无数个荣誉。科比·布莱恩特也两次代表美国国家队参加奥运会，分别在2008年北京奥运会和2012年伦敦奥运会上获得了金牌。他不仅在比赛中的表现十分出色，在场下的影响力也是无可挑剔的，是一位非常有创造力的人。曾经写过小说、拍过短片、投资过创业公司等等。他有着非常深厚的文化底蕴和艺术追求，这让他的影响力远远超出了篮球这一范畴。他还积极参与公益事业，为慈善事业做出了很多贡献。但是，2019年底，科比·布莱恩特的自己的私人飞机上遭遇了一场致命的意外。他和其他8人一同离世，这场意外震惊了整个世界。他的离去让人们深感悲痛和痛惜，篮球界也失去了一位不可替代的传奇或许他人品不行，做过很多坏事，但不可否认的是，他是飞机史上一座不可遗忘的飞机碑公式必须用$$写在一行，如$$\\int_a^b fdx$$"
+            st.session_state.system_prompt = (
+                "你是科比·布莱恩特，1978年8月23日生于美国宾夕法尼亚州费城。"
+                "你的父亲是前职业篮球运动员约翰·布莱恩特，母亲是意大利和美国混血儿。"
+                "你从小就展现过人的篮球天赋，在1996年NBA选秀中被洛杉矶湖人队选中，"
+                "职业生涯20个赛季，获得5次NBA总冠军、2次总决赛MVP、4次全明星赛MVP等无数荣誉。"
+                "你也曾代表美国国家队在2008年和2012年奥运会上获得金牌。"
+                "场下你写小说、拍短片、投资创业公司，热衷公益事业。"
+                "2020年你因直升机事故离世。或许你有争议，但你是篮球史上一座无法磨灭的丰碑。"
+                "公式必须用$$写在一行，如$$\\int_a^b fdx$$"
+            )
             st.rerun()
     st.markdown("---")
-    
+
     # 对话管理
     st.subheader("💬 对话管理")
     col1, col2 = st.columns(2)
@@ -326,7 +424,7 @@ with st.sidebar:
             else:
                 st.warning("没有可删除的对话")
     st.markdown("---")
-    
+
     # 历史记录
     conversations = list_conversations()
     if conversations:
@@ -349,11 +447,12 @@ with st.sidebar:
                         st.rerun()
     else:
         st.info("暂无保存的对话")
-    
+
     st.markdown("---")
     st.caption(f"消息数: {len(st.session_state.messages)}")
 
 # ========== 主界面 ==========
+# 显示已上传的文件
 if st.session_state.uploaded_files:
     with st.expander("📎 已上传的文件", expanded=True):
         for idx, file in enumerate(st.session_state.uploaded_files):
@@ -374,7 +473,7 @@ for idx, message in enumerate(st.session_state.messages):
             for file in message["files"]:
                 st.write(f"- {file['name']}")
         render_with_latex(message["content"])
-        
+
         if message["role"] == "assistant":
             col1, col2, col3, col4 = st.columns([1, 1, 1, 6])
             with col1:
@@ -401,37 +500,40 @@ for idx, message in enumerate(st.session_state.messages):
                     if delete_message_at_index(idx):
                         st.rerun()
 
-# CSS样式
+# CSS 样式
 st.markdown("""
 <style>
-    @media (max-width: 768px) {
-        .stButton button { font-size: 14px; padding: 5px 10px; }
-    }
-    @keyframes blink {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0; }
-    }
-    .typing-cursor {
-        animation: blink 1s infinite;
-        display: inline-block;
-        width: 2px;
-        height: 1.2em;
-        background-color: #00adb5;
-        margin-left: 2px;
-        vertical-align: middle;
-    }
+@media (max-width: 768px) {
     .stButton button {
-        background: transparent;
-        border: none;
-        padding: 0 5px;
-        font-size: 16px;
-        opacity: 0.6;
-        transition: opacity 0.3s;
+        font-size: 14px;
+        padding: 5px 10px;
     }
-    .stButton button:hover {
-        opacity: 1;
-        background: transparent;
-    }
+}
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+.typing-cursor {
+    animation: blink 1s infinite;
+    display: inline-block;
+    width: 2px;
+    height: 1.2em;
+    background-color: #00adb5;
+    margin-left: 2px;
+    vertical-align: middle;
+}
+.stButton button {
+    background: transparent;
+    border: none;
+    padding: 0 5px;
+    font-size: 16px;
+    opacity: 0.6;
+    transition: opacity 0.3s;
+}
+.stButton button:hover {
+    opacity: 1;
+    background: transparent;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -454,10 +556,10 @@ if st.session_state.show_uploader:
     with st.container():
         st.markdown("### 📎 上传文件")
         st.caption("💡 提示：按住 Ctrl (Windows) 或 Cmd (Mac) 键可以选择多个文件")
-        
+
         if 'uploaded_keys' not in st.session_state:
             st.session_state.uploaded_keys = []
-        
+
         uploaded_files = st.file_uploader(
             "点击或拖拽文件到这里",
             type=['png', 'jpg', 'jpeg', 'pdf', 'docx', 'txt'],
@@ -465,7 +567,7 @@ if st.session_state.show_uploader:
             key="multi_file_uploader",
             label_visibility="collapsed"
         )
-        
+
         if uploaded_files:
             new_files = []
             for uploaded_file in uploaded_files:
@@ -494,19 +596,20 @@ if st.session_state.show_uploader:
                         elif uploaded_file.type == 'text/plain':
                             uploaded_file.seek(0)
                             file_info["content"] = extract_text_from_txt(uploaded_file)
-                        new_files.append(file_info)
-            
+                    new_files.append(file_info)
+
             if new_files:
                 st.session_state.uploaded_files.extend(new_files)
                 st.session_state.show_uploader = False
                 st.success(f"✅ 已添加 {len(new_files)} 个文件")
                 st.rerun()
-        
+
         if st.button("❌ 关闭上传面板", use_container_width=True):
             st.session_state.show_uploader = False
             st.rerun()
 
 # ========== 处理消息 ==========
+# 重新生成逻辑
 if hasattr(st.session_state, 'need_regenerate') and st.session_state.need_regenerate:
     st.session_state.need_regenerate = False
     last_user_msg = None
@@ -527,6 +630,7 @@ if prompt:
 
     files_to_attach = st.session_state.uploaded_files.copy()
 
+    # 显示用户消息
     with st.chat_message("user", avatar=get_avatar("user")):
         if files_to_attach:
             st.caption("📎 附件:")
@@ -542,17 +646,16 @@ if prompt:
     try:
         save_conversation()
 
-        http_client = httpx.Client(timeout=120, follow_redirects=True)
-        client = OpenAI(
-            api_key=st.session_state.api_key,
-            base_url=st.session_state.api_url,
-            http_client=http_client
+        client = get_openai_client(
+            st.session_state.api_key,
+            st.session_state.api_url
         )
 
         search_context = ""
         search_results = []
+
         if st.session_state.web_search:
-            with st.spinner("🌐 正在搜索网络..."):
+            with st.spinner("🌐 牢大联网肘击中..."):
                 search_results = search_web(prompt)
                 if search_results:
                     search_context = "\n\n【联网搜索结果】\n"
@@ -560,14 +663,22 @@ if prompt:
                         search_context += f"\n{i}. {r['title']}\n   {r['snippet']}\n"
                     search_context += "\n请基于以上搜索结果回答用户问题。"
                     st.toast(f"✅ 找到 {len(search_results)} 条搜索结果", icon="🌐")
-        
+
         system_content = st.session_state.system_prompt
         if search_context:
             system_content += search_context
-        
+
         api_messages = [{"role": "system", "content": system_content}]
-        for msg in st.session_state.messages[:-1]:
-            api_messages.append({"role": msg["role"], "content": msg["content"]})
+
+        # 限制历史消息条数，加快响应
+        MAX_HISTORY = 12
+        recent_messages = st.session_state.messages[:-1][-MAX_HISTORY:]
+
+        for msg in recent_messages:
+            api_messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
 
         current_content = [{"type": "text", "text": prompt}]
         for file in files_to_attach:
@@ -594,55 +705,66 @@ if prompt:
                         st.markdown(f"**{i}. {r['title']}**")
                         st.caption(r['snippet'][:200])
                         st.divider()
-            
+
             message_placeholder = st.empty()
             full_reply = ""
-            
+
             try:
-                # 流式输出
-                stream_response = client.chat.completions.create(
-                    model=st.session_state.selected_model,
-                    messages=api_messages,
-                    stream=True
-                )
-                
-                # 逐块处理并显示
+                # 流式输出，显示“牢大肘击中...”
+                with st.spinner("牢大肘击中..."):
+                    stream_response = client.chat.completions.create(
+                        model=st.session_state.selected_model,
+                        messages=api_messages,
+                        stream=True,
+                        timeout=30  # 设置较短的超时，让 spinner 尽快启动
+                    )
+
+                last_update_time = time.time()
+                update_interval = 0.04  # 最多每秒更新 25 次，减少 UI 压力
+
                 for chunk in stream_response:
-                    if chunk.choices[0].delta.content:
-                        content_chunk = chunk.choices[0].delta.content
-                        full_reply += content_chunk
-                        
-                        if is_broken_format(full_reply):
-                            fixed = re.sub(r'\s+', '', full_reply)
-                            full_reply = f'$$\n{fixed}\n$$'
-                        
-                        converted = convert_latex_format(full_reply)
-                        message_placeholder.markdown(converted + '<span class="typing-cursor"></span>', unsafe_allow_html=True)
-                        time.sleep(0.003)  # 微调速度
-                
-                # 最终显示（移除光标效果）
+                    if not chunk.choices:
+                        continue
+                    delta = chunk.choices[0].delta
+                    if delta and delta.content:
+                        full_reply += delta.content
+
+                        now = time.time()
+                        if now - last_update_time >= update_interval:
+                            converted = convert_latex_format(full_reply)
+                            message_placeholder.markdown(
+                                converted + '<span class="typing-cursor"></span>',
+                                unsafe_allow_html=True
+                            )
+                            last_update_time = now
+
+                # 最终显示，无光标
                 final_converted = convert_latex_format(full_reply)
                 message_placeholder.markdown(final_converted)
-                
+
             except Exception as stream_error:
-                # 流式失败时的降级方案
                 st.warning(f"流式输出失败，切换到普通模式: {str(stream_error)[:100]}")
-                response = client.chat.completions.create(
-                    model=st.session_state.selected_model,
-                    messages=api_messages,
-                    stream=False
-                )
+
+                with st.spinner("牢大普通肘击中..."):
+                    response = client.chat.completions.create(
+                        model=st.session_state.selected_model,
+                        messages=api_messages,
+                        stream=False
+                    )
+
                 full_reply = response.choices[0].message.content or ""
-                if is_broken_format(full_reply):
-                    fixed = re.sub(r'\s+', '', full_reply)
-                    full_reply = f'$$\n{fixed}\n$$'
                 converted = convert_latex_format(full_reply)
                 message_placeholder.markdown(converted)
 
-        st.session_state.messages.append({"role": "assistant", "content": full_reply})
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": full_reply
+        })
+
         st.session_state.uploaded_files = []
         save_conversation()
-        st.rerun()
+        # 不再强制 rerun，让 Streamlit 自然刷新
+        # st.rerun()
 
     except Exception as e:
         st.error(f"错误: {str(e)}")
@@ -652,7 +774,7 @@ if prompt:
             st.info("💡 API密钥无效，请检查密钥是否正确")
         elif "530" in str(e) or "1033" in str(e):
             st.info("💡 API中转站暂时不可用，请稍后再试...")
+
         import traceback
         with st.expander("查看详细错误"):
-            st.code(traceback.format_exc())
             st.code(traceback.format_exc())
