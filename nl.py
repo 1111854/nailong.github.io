@@ -11,7 +11,6 @@ from styles import apply_custom_styles
 from file_handlers import encode_image, extract_text_from_pdf, extract_text_from_docx, extract_text_from_txt
 from latex_utils import convert_latex_format, render_with_latex
 from message_display import get_avatar, copy_to_clipboard
-from sidebar import render_sidebar
 from chat_core import stream_response, render_crash_message
 from conversation import save_conversation, load_conversation, delete_conversation, list_conversations
 from utils import get_openai_client, search_web, AVAILABLE_MODELS, DEFAULT_MODEL
