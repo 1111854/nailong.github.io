@@ -15,13 +15,6 @@ from auth import register_user, login_user, save_user_conversation, load_user_co
 
 # 自行维护的工具模块，如果你还没有这些文件，可以注释掉相关代码
 # 这里假设你已经有了可用模型列表和默认模型
-AVAILABLE_MODELS = [
-    "gpt-4o",
-    "gpt-4o-mini",
-    "deepseek-v4-pro",
-    # 请根据你的 api 中转站实际模型修改
-]
-DEFAULT_MODEL = "gpt-4o-mini"
 
 # ========== 页面配置 ==========
 st.set_page_config(page_title="牢大GPT", page_icon="🤖", layout="wide")
