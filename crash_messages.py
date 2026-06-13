@@ -1,4 +1,4 @@
-# crash_messages.py - 坠机消息库
+# crash_messages.py
 import random
 
 CRASH_MESSAGES = [
