@@ -1,6 +1,7 @@
 # ========== 模型配置 ==========
 # 所有可用模型
 AVAILABLE_MODELS = [
+    "deepseek-v4-pro"
     "gpt-5.4",
     "gpt-5.4-mini", 
     "gpt-5.5",
@@ -38,6 +39,7 @@ THINKING_MODELS = [
     "gemini-3.1-pro-preview",
     "gemini-3.5-flash-low",
     "gemini-3.1-flash-lite"
+    "deepseek-v4-pro"
 ]
 
 # ========== 联网搜索支持的模型 ==========
@@ -47,6 +49,7 @@ SEARCH_ENABLED_MODELS = [
     "gpt-5.5",
     "claude-sonnet-4-6",
     "gemini-3.5-flash-low"
+    "deepseek-v4-pro"
 ]
 
 # 默认模型
