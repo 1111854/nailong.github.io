@@ -8,13 +8,7 @@ def get_avatar(role):
     """获取头像（支持自定义设置）"""
     
     if role == "user":
-        # ===== 先检查本地图片文件 =====
-        avatar_path = os.path.join(BASE_DIR, "User_avatar.png")
-        if os.path.exists(avatar_path):
-            return avatar_path
-        
-        # ===== 没有图片文件才检查其他设置 =====
-        avatar_type = st.session_state.get('user_avatar_type', 'emoji')
+        avatar_type = st.session_state.get('user_avatar_type', 'file')  # 默认改为 'file'
         
         if avatar_type == 'emoji':
             return st.session_state.get('user_avatar', '👤')
@@ -25,17 +19,15 @@ def get_avatar(role):
             return f"data:image/png;base64,{img_str}"
         elif avatar_type == 'url' and st.session_state.get('user_avatar_url'):
             return st.session_state.user_avatar_url
-        
-        return "👤"
+        else:
+            # file 类型或默认：使用本地图片文件
+            avatar_path = os.path.join(BASE_DIR, "User_avatar.png")
+            if os.path.exists(avatar_path):
+                return avatar_path
+            return "👤"
     
     else:  # assistant
-        # ===== 先检查本地图片文件 =====
-        avatar_path = os.path.join(BASE_DIR, "AI_avatar.png")
-        if os.path.exists(avatar_path):
-            return avatar_path
-        
-        # ===== 没有图片文件才检查其他设置 =====
-        avatar_type = st.session_state.get('ai_avatar_type', 'emoji')
+        avatar_type = st.session_state.get('ai_avatar_type', 'file')
         
         if avatar_type == 'emoji':
             return st.session_state.get('ai_avatar', '🤖')
@@ -46,8 +38,11 @@ def get_avatar(role):
             return f"data:image/png;base64,{img_str}"
         elif avatar_type == 'url' and st.session_state.get('ai_avatar_url'):
             return st.session_state.ai_avatar_url
-        
-        return "🤖"
+        else:
+            avatar_path = os.path.join(BASE_DIR, "AI_avatar.png")
+            if os.path.exists(avatar_path):
+                return avatar_path
+            return "🤖"
 
 def copy_to_clipboard(text):
     st.toast("📋 请手动选中文本后按 Ctrl+C 复制", icon="📋")
