@@ -208,6 +208,9 @@ if hasattr(st.session_state, 'need_regenerate') and st.session_state.need_regene
 
 # ========== 处理消息 ==========
 if prompt and st.session_state.api_key:
+    # ✅ 添加这一行：重置停止标志
+    st.session_state.stop_generation = False
+    
     files_to_attach = st.session_state.uploaded_files.copy()
 
     with st.chat_message("user", avatar=get_avatar("user")):
@@ -240,9 +243,9 @@ if prompt and st.session_state.api_key:
         with st.chat_message("assistant", avatar=get_avatar("assistant")):
             placeholder = st.empty()
             status = st.empty()
-            status.markdown("🏀 **牢大正在肘击...**", unsafe_allow_html=True)
             
             try:
+                # stream_response 函数内部已经支持停止功能（需要更新 chat_core.py）
                 full_reply = stream_response(client, api_messages, st.session_state.selected_model, placeholder, status)
                 if full_reply:
                     placeholder.markdown(convert_latex_format(full_reply))
