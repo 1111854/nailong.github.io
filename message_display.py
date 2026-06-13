@@ -5,15 +5,15 @@ import base64
 from config import BASE_DIR
 
 def get_avatar(role):
-    """获取头像（优先使用本地图片文件）"""
+    """获取头像（支持自定义设置）"""
     
     if role == "user":
-        # 先检查本地图片文件
+        # ===== 先检查本地图片文件 =====
         avatar_path = os.path.join(BASE_DIR, "User_avatar.png")
         if os.path.exists(avatar_path):
             return avatar_path
         
-        # 没有图片文件才检查自定义设置
+        # ===== 没有图片文件才检查其他设置 =====
         avatar_type = st.session_state.get('user_avatar_type', 'emoji')
         
         if avatar_type == 'emoji':
@@ -29,12 +29,12 @@ def get_avatar(role):
         return "👤"
     
     else:  # assistant
-        # 先检查本地图片文件
+        # ===== 先检查本地图片文件 =====
         avatar_path = os.path.join(BASE_DIR, "AI_avatar.png")
         if os.path.exists(avatar_path):
             return avatar_path
         
-        # 没有图片文件才检查自定义设置
+        # ===== 没有图片文件才检查其他设置 =====
         avatar_type = st.session_state.get('ai_avatar_type', 'emoji')
         
         if avatar_type == 'emoji':
