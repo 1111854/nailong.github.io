@@ -699,78 +699,77 @@ if prompt:
                         st.caption(r['snippet'][:200])
                         st.divider()
 
-# 创建占位符
-message_placeholder = st.empty()
-status_placeholder = st.empty()
-
-# 显示状态提示
-status_placeholder.markdown("🏀 **牢大正在肘击...** <span class='typing-cursor'></span>", unsafe_allow_html=True)
-
-full_reply = ""
-start_time = time.time()
-first_token_received = False
-
-try:
-    # 发起流式请求
-    stream_response = client.chat.completions.create(
-        model=st.session_state.selected_model,
-        messages=api_messages,
-        stream=True,
-        timeout=httpx.Timeout(60.0, connect=10.0)
-    )
-    
-    last_update_time = time.time()
-    update_interval = 0.03
-    buffer = ""
-    buffer_size = 0
-    
-    for chunk in stream_response:
-        if not chunk.choices:
-            continue
-        delta = chunk.choices[0].delta
-        if delta and delta.content:
-            content_chunk = delta.content
-            full_reply += content_chunk
-            buffer += content_chunk
-            buffer_size += len(content_chunk)
+            # 创建占位符
+            message_placeholder = st.empty()
+            status_placeholder = st.empty()
             
-            # 收到第一个字符，立即清除"肘击中"提示
-            if not first_token_received:
-                first_token_received = True
-                status_placeholder.empty()  # ✅ 直接清空
+            # 显示状态提示
+            status_placeholder.markdown("🏀 **牢大正在肘击...** <span class='typing-cursor'></span>", unsafe_allow_html=True)
             
-            now = time.time()
-            if buffer_size >= 3 or (now - last_update_time) >= update_interval:
-                if is_broken_format(full_reply):
-                    fixed = re.sub(r'\s+', '', full_reply)
-                    full_reply = f'$$\n{fixed}\n$$'
-                
-                converted = convert_latex_format(full_reply)
-                message_placeholder.markdown(
-                    converted + '<span class="typing-cursor"></span>',
-                    unsafe_allow_html=True
+            full_reply = ""
+            start_time = time.time()
+            first_token_received = False
+            
+            try:
+                # 发起流式请求
+                stream_response = client.chat.completions.create(
+                    model=st.session_state.selected_model,
+                    messages=api_messages,
+                    stream=True,
+                    timeout=httpx.Timeout(60.0, connect=10.0)
                 )
-                last_update_time = now
+                
+                last_update_time = time.time()
+                update_interval = 0.03
                 buffer = ""
                 buffer_size = 0
-    
-    # 最终显示
-    if full_reply:
-        final_converted = convert_latex_format(full_reply)
-        message_placeholder.markdown(final_converted)
-        
-        # 显示耗时统计
-        total_ms = (time.time() - start_time) * 1000
-        st.caption(f"⏱️ 总耗时: {total_ms:.0f}ms")
-    else:
-        status_placeholder.empty()
-        message_placeholder.markdown("*牢大沉默了，什么都没说...*")
-        full_reply = "[无响应]"
+                
+                for chunk in stream_response:
+                    if not chunk.choices:
+                        continue
+                    delta = chunk.choices[0].delta
+                    if delta and delta.content:
+                        content_chunk = delta.content
+                        full_reply += content_chunk
+                        buffer += content_chunk
+                        buffer_size += len(content_chunk)
+                        
+                        # 收到第一个字符，立即清除"肘击中"提示
+                        if not first_token_received:
+                            first_token_received = True
+                            status_placeholder.empty()
+                        
+                        now = time.time()
+                        if buffer_size >= 3 or (now - last_update_time) >= update_interval:
+                            if is_broken_format(full_reply):
+                                fixed = re.sub(r'\s+', '', full_reply)
+                                full_reply = f'$$\n{fixed}\n$$'
+                            
+                            converted = convert_latex_format(full_reply)
+                            message_placeholder.markdown(
+                                converted + '<span class="typing-cursor"></span>',
+                                unsafe_allow_html=True
+                            )
+                            last_update_time = now
+                            buffer = ""
+                            buffer_size = 0
+                
+                # 最终显示
+                if full_reply:
+                    final_converted = convert_latex_format(full_reply)
+                    message_placeholder.markdown(final_converted)
+                    total_ms = (time.time() - start_time) * 1000
+                    st.caption(f"⏱️ 总耗时: {total_ms:.0f}ms")
+                else:
+                    status_placeholder.empty()
+                    message_placeholder.markdown("*牢大沉默了，什么都没说...*")
+                    full_reply = "[无响应]"
 
-except Exception as stream_error:
-    status_placeholder.empty()
-    st.warning(f"流式输出失败，切换到普通模式: {str(stream_error)[:100]}")
-    # 降级逻辑...
+            except Exception as stream_error:
+                status_placeholder.empty()
+                st.warning(f"流式输出失败，切换到普通模式: {str(stream_error)[:100]}")
+                
+                # 降级到非流式
                 with st.spinner("牢大普通肘击中..."):
                     response = client.chat.completions.create(
                         model=st.session_state.selected_model,
@@ -783,7 +782,7 @@ except Exception as stream_error:
                     converted = convert_latex_format(full_reply)
                     message_placeholder.markdown(converted)
                 else:
-                    message_placeholder.markdown("*牢大坠机了*")
+                    message_placeholder.markdown("*牢大累了，什么都没说...*")
                     full_reply = "[无响应]"
 
         st.session_state.messages.append({
