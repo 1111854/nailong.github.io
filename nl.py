@@ -278,11 +278,11 @@ with st.sidebar:
     if selected_model == "deepseek-v4-pro":
         st.session_state.api_url = url2
     # 如果环境变量有 DAPI，自动切换 API key
-    if os.environ.get('DAPI'):
-        st.session_state.api_key = os.environ.get('DAPI')
+        if os.environ.get('DAPI'):
+           st.session_state.api_key = os.environ.get('DAPI')
     else:
         st.session_state.api_url = url1
-          if os.environ.get('CAPI'):
+        if os.environ.get('CAPI'):
             st.session_state.api_key = os.environ.get('CAPI')
         
     # 联网搜索开关
