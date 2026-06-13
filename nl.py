@@ -17,9 +17,7 @@ from auth import register_user, login_user, save_user_conversation, load_user_co
 st.set_page_config(page_title="牢大GPT", page_icon="🤖", layout="wide")
 
 # ========== 配置 ==========
-global API_URL
 API_URL = "https://mynewapi.n1neman.fun/v1"
-global api_key
 url1=API_URL
 url2="https://api.deepseek.com"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -236,7 +234,8 @@ if 'selected_model' not in st.session_state:
     st.session_state.selected_model = DEFAULT_MODEL
 if 'web_search' not in st.session_state:
     st.session_state.web_search = False
-
+if 'api_url' not in st.session_state:
+    st.session_state.api_url = API_URL  # 存储到 session_state
 # ========== 侧边栏 ==========
 with st.sidebar:
     st.markdown(f"### 👤 用户：{st.session_state.username}")
@@ -276,12 +275,15 @@ with st.sidebar:
         st.rerun()
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
     st.markdown("---")
-    if selected_model=="deepseek-v4-pro":
-        API_URL=url2
-        api_key=api2
+    if selected_model == "deepseek-v4-pro":
+    st.session_state.api_url = url2
+    # 如果环境变量有 DAPI，自动切换 API key
+    if os.environ.get('DAPI'):
+        st.session_state.api_key = os.environ.get('DAPI')
     else:
-        API_URL=url1
-        api_key=api1
+        st.session_state.api_url = url1
+        if os.environ.get('CAPI'):
+          st.session_state.api_key = os.environ.get('CAPI')
         
     # 联网搜索开关
     st.session_state.web_search = st.toggle("🌐 开启联网搜索", value=st.session_state.web_search)
@@ -543,7 +545,7 @@ if prompt:
         http_client = httpx.Client(timeout=120, follow_redirects=True)
         client = OpenAI(
             api_key=st.session_state.api_key,
-            base_url=API_URL,
+            base_url=st.session_state.api_url,
             http_client=http_client
         )
 
