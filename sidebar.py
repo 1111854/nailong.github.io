@@ -1,39 +1,94 @@
-# session_state.py
 import streamlit as st
+import os
+import shutil
 from datetime import datetime
-from config import API_URL
-from utils import DEFAULT_MODEL
+from config import API_URL, DEEPSEEK_URL, BASE_DIR
+from utils import AVAILABLE_MODELS, DEFAULT_MODEL, THINKING_MODELS, SEARCH_ENABLED_MODELS
+from conversation import list_conversations, load_conversation, delete_conversation
 
-def init_session_state():
-    """初始化所有 session state 变量"""
-    if 'messages' not in st.session_state:
-        st.session_state.messages = []
-    if 'api_key' not in st.session_state:
-        st.session_state.api_key = None
-    if 'uploaded_files' not in st.session_state:
-        st.session_state.uploaded_files = []
-    if 'show_uploader' not in st.session_state:
-        st.session_state.show_uploader = False
-    if 'current_session_id' not in st.session_state:
-        st.session_state.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if 'system_prompt' not in st.session_state:
-        st.session_state.system_prompt = (
-            "你是科比·布莱恩特，1978年8月23日生于美国宾夕法尼亚州费城。"
-            "你的父亲是前职业篮球运动员约翰·布莱恩特，母亲是意大利和美国混血儿。"
-            "你从小就展现过人的篮球天赋，在1996年NBA选秀中被洛杉矶湖人队选中，"
-            "职业生涯20个赛季，获得5次NBA总冠军、2次总决赛MVP、4次全明星赛MVP等无数荣誉。"
-            "你也曾代表美国国家队在2008年和2012年奥运会上获得金牌。"
-            "场下你写小说、拍短片、投资创业公司，热衷公益事业。"
-            "2020年你因直升机事故离世。或许你有争议，但你是篮球史上一座无法磨灭的丰碑。"
-            "公式必须用$$写在一行，如$$\\int_a^b fdx$$"
-        )
-    if 'selected_model' not in st.session_state:
-        st.session_state.selected_model = DEFAULT_MODEL
-    if 'web_search' not in st.session_state:
-        st.session_state.web_search = False
-    if 'api_url' not in st.session_state:
-        st.session_state.api_url = API_URL
-    if 'logged_in' not in st.session_state:
-        st.session_state.logged_in = False
-    if 'username' not in st.session_state:
-        st.session_state.username = None
+def render_sidebar():
+    with st.sidebar:
+        st.markdown(f"### 👤 用户：{st.session_state.username}")
+        
+        with st.expander("🎨 修改头像", expanded=False):
+            # 用户头像
+            st.markdown("**👤 用户头像**")
+            user_choice = st.selectbox("", ["默认", "上传图片"], key="user_choice", label_visibility="collapsed")
+            if user_choice == "上传图片":
+                img = st.file_uploader("", type=['png', 'jpg'], key="user_img", label_visibility="collapsed")
+                if img:
+                    with open(os.path.join(BASE_DIR, "User_avatar.png"), "wb") as f:
+                        f.write(img.getbuffer())
+                    st.success("已更新")
+                    st.rerun()
+            
+            st.markdown("---")
+            
+            # AI头像
+            st.markdown("**🤖 AI头像**")
+            ai_choice = st.selectbox("", ["默认", "上传图片"], key="ai_choice", label_visibility="collapsed")
+            if ai_choice == "上传图片":
+                img = st.file_uploader("", type=['png', 'jpg'], key="ai_img", label_visibility="collapsed")
+                if img:
+                    with open(os.path.join(BASE_DIR, "AI_avatar.png"), "wb") as f:
+                        f.write(img.getbuffer())
+                    st.success("已更新")
+                    st.rerun()
+        
+        if st.button("🚪 退出登录"):
+            st.session_state.logged_in = False
+            st.session_state.username = None
+            st.session_state.messages = []
+            st.rerun()
+
+        st.markdown("---")
+        
+        gif_path = os.path.join(BASE_DIR, "banner.gif")
+        if os.path.exists(gif_path):
+            st.image(gif_path)
+
+        api_key_env = os.environ.get('CAPI')
+        if api_key_env:
+            st.session_state.api_key = api_key_env
+        elif not st.session_state.api_key:
+            key = st.text_input("API密钥", type="password")
+            if key:
+                st.session_state.api_key = key
+                st.rerun()
+
+        st.markdown("---")
+        
+        st.subheader("🤖 模型选择")
+        selected_model = st.selectbox("", AVAILABLE_MODELS, index=AVAILABLE_MODELS.index(st.session_state.selected_model) if st.session_state.selected_model in AVAILABLE_MODELS else 0)
+        if selected_model != st.session_state.selected_model:
+            st.session_state.selected_model = selected_model
+            st.rerun()
+        
+        if selected_model == "deepseek-v4-pro":
+            st.session_state.api_url = DEEPSEEK_URL
+        else:
+            st.session_state.api_url = API_URL
+
+        st.markdown("---")
+        
+        st.subheader("🎭 AI角色设定")
+        new_prompt = st.text_area("", value=st.session_state.system_prompt, height=120)
+        if st.button("💾 保存"):
+            st.session_state.system_prompt = new_prompt
+            st.rerun()
+
+        st.markdown("---")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✨ 新建", use_container_width=True):
+                st.session_state.messages = []
+                st.rerun()
+        with col2:
+            if st.button("🗑️ 删除当前", use_container_width=True):
+                if st.session_state.messages:
+                    st.session_state.messages = []
+                    st.rerun()
+
+        st.markdown("---")
+        st.caption(f"消息数: {len(st.session_state.messages)}")
