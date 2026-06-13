@@ -699,55 +699,103 @@ if prompt:
                         st.caption(r['snippet'][:200])
                         st.divider()
 
+            # 创建占位符
             message_placeholder = st.empty()
+            status_placeholder = st.empty()
+            
+            # 显示状态提示（不使用 spinner，用普通文本）
+            status_placeholder.markdown("🏀 **牢大正在肘击...** <span class='typing-cursor'></span>", unsafe_allow_html=True)
+            
             full_reply = ""
-
+            start_time = time.time()
+            first_token_time = None
+            
             try:
-                # 流式输出，显示“牢大肘击中...”
-                with st.spinner("牢大肘击中..."):
-                    stream_response = client.chat.completions.create(
-                        model=st.session_state.selected_model,
-                        messages=api_messages,
-                        stream=True,
-                        timeout=30  # 设置较短的超时，让 spinner 尽快启动
-                    )
-
+                # 发起流式请求（不带外层 spinner）
+                stream_response = client.chat.completions.create(
+                    model=st.session_state.selected_model,
+                    messages=api_messages,
+                    stream=True,
+                    timeout=httpx.Timeout(60.0, connect=10.0)  # 正确的 timeout 设置
+                )
+                
+                # 优化更新频率
                 last_update_time = time.time()
-                update_interval = 0.04  # 最多每秒更新 25 次，减少 UI 压力
-
+                update_interval = 0.03  # 约 33fps，更流畅
+                buffer = ""
+                buffer_size = 0
+                
                 for chunk in stream_response:
                     if not chunk.choices:
                         continue
                     delta = chunk.choices[0].delta
                     if delta and delta.content:
-                        full_reply += delta.content
-
+                        content_chunk = delta.content
+                        full_reply += content_chunk
+                        buffer += content_chunk
+                        buffer_size += len(content_chunk)
+                        
+                        # 记录首 token 时间
+                        if first_token_time is None:
+                            first_token_time = time.time()
+                            latency_ms = (first_token_time - start_time) * 1000
+                            # 更新状态提示为首 token 延迟信息
+                            status_placeholder.markdown(f"⚡ **首字延迟: {latency_ms:.0f}ms**", unsafe_allow_html=True)
+                            # 0.5秒后清除状态提示
+                            # 注意：这里不能直接 sleep，会阻塞，所以用后续逻辑处理
+                        
                         now = time.time()
-                        if now - last_update_time >= update_interval:
+                        # 每积累一定字符或超过时间间隔才更新
+                        if buffer_size >= 3 or (now - last_update_time) >= update_interval:
+                            # 首次收到内容后，清除状态提示（延迟一点清除效果更好）
+                            if first_token_time is not None and status_placeholder.container:
+                                status_placeholder.empty()
+                            
+                            if is_broken_format(full_reply):
+                                fixed = re.sub(r'\s+', '', full_reply)
+                                full_reply = f'$$\n{fixed}\n$$'
+                            
                             converted = convert_latex_format(full_reply)
                             message_placeholder.markdown(
                                 converted + '<span class="typing-cursor"></span>',
                                 unsafe_allow_html=True
                             )
                             last_update_time = now
-
+                            buffer = ""
+                            buffer_size = 0
+                
                 # 最终显示，无光标
-                final_converted = convert_latex_format(full_reply)
-                message_placeholder.markdown(final_converted)
+                if full_reply:
+                    final_converted = convert_latex_format(full_reply)
+                    message_placeholder.markdown(final_converted)
+                    
+                    # 显示总耗时（可选，1秒后自动消失）
+                    total_ms = (time.time() - start_time) * 1000
+                    st.caption(f"⏱️ 总耗时: {total_ms:.0f}ms | 首字: {(first_token_time - start_time) * 1000:.0f}ms" if first_token_time else f"⏱️ 总耗时: {total_ms:.0f}ms")
+                else:
+                    status_placeholder.empty()
+                    message_placeholder.markdown("*牢大沉默了，什么都没说...*")
+                    full_reply = "[无响应]"
 
             except Exception as stream_error:
+                status_placeholder.empty()
                 st.warning(f"流式输出失败，切换到普通模式: {str(stream_error)[:100]}")
-
+                
+                # 降级到非流式
                 with st.spinner("牢大普通肘击中..."):
                     response = client.chat.completions.create(
                         model=st.session_state.selected_model,
                         messages=api_messages,
                         stream=False
                     )
-
+                
                 full_reply = response.choices[0].message.content or ""
-                converted = convert_latex_format(full_reply)
-                message_placeholder.markdown(converted)
+                if full_reply:
+                    converted = convert_latex_format(full_reply)
+                    message_placeholder.markdown(converted)
+                else:
+                    message_placeholder.markdown("*牢大累了，什么都没说...*")
+                    full_reply = "[无响应]"
 
         st.session_state.messages.append({
             "role": "assistant",
@@ -756,8 +804,6 @@ if prompt:
 
         st.session_state.uploaded_files = []
         save_conversation()
-        # 不再强制 rerun，让 Streamlit 自然刷新
-        # st.rerun()
 
     except Exception as e:
         st.error(f"错误: {str(e)}")
