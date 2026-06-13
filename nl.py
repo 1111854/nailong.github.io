@@ -282,8 +282,8 @@ with st.sidebar:
         st.session_state.api_key = os.environ.get('DAPI')
     else:
         st.session_state.api_url = url1
-        if os.environ.get('CAPI'):
-          st.session_state.api_key = os.environ.get('CAPI')
+          if os.environ.get('CAPI'):
+            st.session_state.api_key = os.environ.get('CAPI')
         
     # 联网搜索开关
     st.session_state.web_search = st.toggle("🌐 开启联网搜索", value=st.session_state.web_search)
