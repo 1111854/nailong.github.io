@@ -1,13 +1,13 @@
-# connection_warmup.py - 新建文件
+# connection_warmup.py - 线程安全版本
 
 import streamlit as st
 import time
 import threading
-from datetime import datetime
 import requests
+from streamlit.runtime.scriptrunner import add_script_run_ctx
 
 class ConnectionWarmup:
-    """连接预热管理器"""
+    """连接预热管理器（线程安全版本）"""
     
     def __init__(self):
         self.last_warmup = None
@@ -25,7 +25,7 @@ class ConnectionWarmup:
         if self.is_warming:
             return
         
-        # 启动后台预热
+        # 启动后台预热（带 Streamlit 上下文）
         def warmup():
             self.is_warming = True
             try:
@@ -39,17 +39,23 @@ class ConnectionWarmup:
                 # 建立TCP连接（不发送实际请求）
                 session.get(api_url, timeout=2)
                 
-                # 保持会话
+                # ✅ 关键：在 Streamlit 上下文中安全访问 session_state
                 st.session_state._warm_session = session
                 self.last_warmup = time.time()
                 
             except Exception as e:
                 # 预热失败不影响主流程
-                pass
+                print(f"预热失败: {e}")
             finally:
                 self.is_warming = False
         
+        # 创建线程
         thread = threading.Thread(target=warmup, daemon=True)
+        
+        # ✅ 关键：添加 Streamlit 脚本运行上下文
+        add_script_run_ctx(thread)
+        
+        # 启动线程
         thread.start()
     
     def get_warm_session(self):
@@ -58,23 +64,3 @@ class ConnectionWarmup:
 
 # 创建全局实例
 warmup_manager = ConnectionWarmup()
-
-# 在nl.py中使用
-from connection_warmup import warmup_manager
-
-# 在用户登录后
-if st.session_state.logged_in:
-    warmup_manager.warmup_if_needed(
-        st.session_state.api_key,
-        st.session_state.api_url
-    )
-
-# 在发送消息时使用预热会话
-if prompt and st.session_state.api_key:
-    # 使用预热过的会话
-    warm_session = warmup_manager.get_warm_session()
-    if warm_session:
-        # 复用连接
-        client = get_openai_client_with_session(warm_session)
-    else:
-        client = get_openai_client(...)
