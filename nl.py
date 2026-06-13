@@ -2,7 +2,7 @@
 import streamlit as st
 import time
 from datetime import datetime
-
+import os
 # 导入模块
 from config import API_URL, BASE_DIR, HISTORY_DIR, UPLOAD_DIR
 from auth import register_user, login_user
