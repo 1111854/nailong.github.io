@@ -35,6 +35,7 @@ if not st.session_state.logged_in:
     
     tab1, tab2 = st.tabs(["登录", "注册"])
     
+    # nl.py 中的登录部分（第 34-48 行）
     with tab1:
         with st.form("login_form"):
             username = st.text_input("用户名", placeholder="输入您的用户名")
@@ -46,18 +47,20 @@ if not st.session_state.logged_in:
                     st.session_state.username = username
                     st.session_state.messages = []
                     
-                    # ===== 添加预热代码 =====
-                    if st.session_state.get('api_key'):
-                        warmup_manager.warmup_if_needed(
-                            st.session_state.api_key,
-                            st.session_state.api_url
-                        )
+                    # ===== 预热代码（修改后）=====
+                    # 注意：这里不要直接传 api_key，因为可能还没设置
+                    # 可以先检查是否有默认配置
+                    api_key = st.session_state.get('api_key')
+                    api_url = st.session_state.get('api_url', 'https://api.openai.com/v1/chat/completions')
+                    
+                    if api_key:  # 只有当 api_key 存在时才预热
+                        warmup_manager.warmup_if_needed(api_key, api_url)
                     # =====================
                     
                     st.rerun()
                 else:
                     st.error(msg)
-    
+        
     with tab2:
         with st.form("register_form"):
             new_username = st.text_input("用户名", placeholder="输入您想要的用户名")
