@@ -699,7 +699,7 @@ if prompt:
                         st.caption(r['snippet'][:200])
                         st.divider()
 
-           # 创建占位符
+# 创建占位符
 message_placeholder = st.empty()
 status_placeholder = st.empty()
 
@@ -737,7 +737,7 @@ try:
             # 收到第一个字符，立即清除"肘击中"提示
             if not first_token_received:
                 first_token_received = True
-                status_placeholder.empty()
+                status_placeholder.empty()  # ✅ 直接清空
             
             now = time.time()
             if buffer_size >= 3 or (now - last_update_time) >= update_interval:
@@ -759,7 +759,7 @@ try:
         final_converted = convert_latex_format(full_reply)
         message_placeholder.markdown(final_converted)
         
-        # 可选：显示耗时
+        # 显示耗时统计
         total_ms = (time.time() - start_time) * 1000
         st.caption(f"⏱️ 总耗时: {total_ms:.0f}ms")
     else:
@@ -770,7 +770,7 @@ try:
 except Exception as stream_error:
     status_placeholder.empty()
     st.warning(f"流式输出失败，切换到普通模式: {str(stream_error)[:100]}")
-    # 降级到非流式...
+    # 降级逻辑...
                 with st.spinner("牢大普通肘击中..."):
                     response = client.chat.completions.create(
                         model=st.session_state.selected_model,
