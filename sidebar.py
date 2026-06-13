@@ -18,20 +18,22 @@ def render_sidebar():
             st.markdown("**👤 用户头像**")
             user_avatar_choice = st.selectbox(
                 "选择用户头像",
-                ["默认 👤", "自定义 Emoji", "上传图片", "图片 URL"],
+                ["默认图片", "上传图片"],
                 key="user_avatar_choice",
                 label_visibility="collapsed"
             )
             
-            if user_avatar_choice == "默认 👤":
-                st.session_state.user_avatar = "👤"
-                st.session_state.user_avatar_type = "emoji"
-            elif user_avatar_choice == "自定义 Emoji":
-                user_emoji = st.text_input("输入 Emoji", value=st.session_state.get('user_avatar', '😎'), max_chars=2, key="user_emoji")
-                if user_emoji:
-                    st.session_state.user_avatar = user_emoji
-                    st.session_state.user_avatar_type = "emoji"
-                st.caption(f"当前: {st.session_state.user_avatar}")
+            if user_avatar_choice == "默认图片":
+                # 恢复默认头像
+                default_path = os.path.join(BASE_DIR, "User_avatar_default.png")
+                if os.path.exists(default_path):
+                    import shutil
+                    shutil.copy(default_path, os.path.join(BASE_DIR, "User_avatar.png"))
+                    st.success("已恢复默认头像")
+                    st.rerun()
+                else:
+                    st.info("默认头像文件不存在")
+            
             elif user_avatar_choice == "上传图片":
                 uploaded_user_img = st.file_uploader(
                     "上传头像图片", 
@@ -40,18 +42,12 @@ def render_sidebar():
                     label_visibility="collapsed"
                 )
                 if uploaded_user_img:
-                    # 保存图片到 session_state
-                    st.session_state.user_avatar_image = uploaded_user_img
-                    st.session_state.user_avatar_type = "image"
+                    save_path = os.path.join(BASE_DIR, "User_avatar.png")
+                    with open(save_path, "wb") as f:
+                        f.write(uploaded_user_img.getbuffer())
                     st.image(uploaded_user_img, width=80, caption="预览")
-                elif st.session_state.get('user_avatar_type') == 'image':
-                    st.image(st.session_state.user_avatar_image, width=80, caption="当前头像")
-            elif user_avatar_choice == "图片 URL":
-                user_url = st.text_input("图片 URL", value=st.session_state.get('user_avatar_url', ''), key="user_avatar_url")
-                if user_url:
-                    st.session_state.user_avatar_url = user_url
-                    st.session_state.user_avatar_type = "url"
-                    st.image(user_url, width=80, caption="预览")
+                    st.success("头像已更新！")
+                    st.rerun()
             
             st.markdown("---")
             
@@ -59,20 +55,21 @@ def render_sidebar():
             st.markdown("**🤖 AI头像**")
             ai_avatar_choice = st.selectbox(
                 "选择AI头像",
-                ["默认 🤖", "自定义 Emoji", "上传图片", "图片 URL"],
+                ["默认图片", "上传图片"],
                 key="ai_avatar_choice",
                 label_visibility="collapsed"
             )
             
-            if ai_avatar_choice == "默认 🤖":
-                st.session_state.ai_avatar = "🤖"
-                st.session_state.ai_avatar_type = "emoji"
-            elif ai_avatar_choice == "自定义 Emoji":
-                ai_emoji = st.text_input("输入 Emoji", value=st.session_state.get('ai_avatar', '🏀'), max_chars=2, key="ai_emoji")
-                if ai_emoji:
-                    st.session_state.ai_avatar = ai_emoji
-                    st.session_state.ai_avatar_type = "emoji"
-                st.caption(f"当前: {st.session_state.ai_avatar}")
+            if ai_avatar_choice == "默认图片":
+                default_path = os.path.join(BASE_DIR, "AI_avatar_default.png")
+                if os.path.exists(default_path):
+                    import shutil
+                    shutil.copy(default_path, os.path.join(BASE_DIR, "AI_avatar.png"))
+                    st.success("已恢复默认头像")
+                    st.rerun()
+                else:
+                    st.info("默认头像文件不存在")
+            
             elif ai_avatar_choice == "上传图片":
                 uploaded_ai_img = st.file_uploader(
                     "上传头像图片", 
@@ -81,20 +78,15 @@ def render_sidebar():
                     label_visibility="collapsed"
                 )
                 if uploaded_ai_img:
-                    st.session_state.ai_avatar_image = uploaded_ai_img
-                    st.session_state.ai_avatar_type = "image"
+                    save_path = os.path.join(BASE_DIR, "AI_avatar.png")
+                    with open(save_path, "wb") as f:
+                        f.write(uploaded_ai_img.getbuffer())
                     st.image(uploaded_ai_img, width=80, caption="预览")
-                elif st.session_state.get('ai_avatar_type') == 'image':
-                    st.image(st.session_state.ai_avatar_image, width=80, caption="当前头像")
-            elif ai_avatar_choice == "图片 URL":
-                ai_url = st.text_input("图片 URL", value=st.session_state.get('ai_avatar_url', ''), key="ai_avatar_url")
-                if ai_url:
-                    st.session_state.ai_avatar_url = ai_url
-                    st.session_state.ai_avatar_type = "url"
-                    st.image(ai_url, width=80, caption="预览")
+                    st.success("头像已更新！")
+                    st.rerun()
             
             st.markdown("---")
-            st.caption("💡 提示：修改后立即生效，所有消息的头像都会更新")
+            st.caption("💡 提示：修改后刷新页面或发送新消息即可看到新头像")
         
         # ===== 原有的退出登录按钮 =====
         if st.button("🚪 退出登录"):
