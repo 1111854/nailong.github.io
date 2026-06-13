@@ -1,51 +1,42 @@
-import os
-import json
+# conversation.py
+import streamlit as st
 from datetime import datetime
-from config import HISTORY_DIR
+from auth import save_user_conversation, load_user_conversations, delete_user_conversation
 
-def save_conversation(messages, session_id, system_prompt):
-    if not messages:
+def save_conversation():
+    if not st.session_state.messages:
         return
-    filename = os.path.join(HISTORY_DIR, f"chat_{session_id}.json")
-    data = {
+    session_id = st.session_state.current_session_id
+    conversation_data = {
         "id": session_id,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "messages": messages,
-        "system_prompt": system_prompt
+        "messages": st.session_state.messages,
+        "system_prompt": st.session_state.system_prompt
     }
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    save_user_conversation(st.session_state.username, session_id, conversation_data)
 
 def load_conversation(session_id):
-    filename = os.path.join(HISTORY_DIR, f"chat_{session_id}.json")
-    try:
-        with open(filename, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return None
+    user_conversations = load_user_conversations(st.session_state.username)
+    if session_id in user_conversations:
+        data = user_conversations[session_id]
+        st.session_state.messages = data["messages"]
+        st.session_state.current_session_id = session_id
+        if "system_prompt" in data:
+            st.session_state.system_prompt = data["system_prompt"]
+        return True
+    return False
 
 def delete_conversation(session_id):
-    filename = os.path.join(HISTORY_DIR, f"chat_{session_id}.json")
-    try:
-        os.remove(filename)
-        return True
-    except:
-        return False
+    return delete_user_conversation(st.session_state.username, session_id)
 
 def list_conversations():
+    user_conversations = load_user_conversations(st.session_state.username)
     conversations = []
-    if os.path.exists(HISTORY_DIR):
-        for file in os.listdir(HISTORY_DIR):
-            if file.startswith("chat_") and file.endswith(".json"):
-                try:
-                    with open(os.path.join(HISTORY_DIR, file), "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                        conversations.append({
-                            "id": data["id"],
-                            "created_at": data["created_at"],
-                            "message_count": len(data["messages"])
-                        })
-                except:
-                    pass
+    for session_id, data in user_conversations.items():
+        conversations.append({
+            "id": session_id,
+            "created_at": data["created_at"],
+            "message_count": len(data["messages"])
+        })
     conversations.sort(key=lambda x: x["created_at"], reverse=True)
     return conversations
