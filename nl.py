@@ -18,7 +18,7 @@ st.set_page_config(page_title="牢大GPT", page_icon="🤖", layout="wide")
 
 # ========== 配置 ==========
 API_URL = "https://mynewapi.n1neman.fun/v1"
-url1=API_URL1
+url1=API_URL
 url2="https://api.deepseek.com"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORY_DIR = os.path.join(BASE_DIR, "chat_history")
