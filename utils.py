@@ -52,3 +52,49 @@ SEARCH_ENABLED_MODELS = [
 
 # 默认模型
 DEFAULT_MODEL = "gpt-5.5"
+# ========== 添加到 utils.py 末尾 ==========
+import httpx
+from openai import OpenAI
+import streamlit as st
+
+@st.cache_resource
+def get_openai_client(api_key, api_url):
+    """获取 OpenAI 客户端（带缓存）"""
+    http_client = httpx.Client(
+        timeout=httpx.Timeout(60.0, connect=10.0),
+        follow_redirects=True
+    )
+    return OpenAI(
+        api_key=api_key,
+        base_url=api_url,
+        http_client=http_client
+    )
+
+def search_web(query, max_results=3):
+    """联网搜索"""
+    from tavily import TavilyClient
+    import os
+    
+    tavily_key = os.environ.get("TAVILY_API_KEY")
+    if not tavily_key:
+        return []
+    try:
+        client = TavilyClient(api_key=tavily_key)
+        response = client.search(
+            query=query,
+            search_depth="basic",
+            max_results=max_results,
+            include_answer=True
+        )
+        results = []
+        if response.get('answer'):
+            results.append({'title': '📌 AI 总结', 'snippet': response['answer']})
+        for item in response.get('results', [])[:max_results]:
+            results.append({
+                'title': item.get('title', '无标题'),
+                'snippet': item.get('content', '无内容')[:300]
+            })
+        return results
+    except Exception as e:
+        st.toast(f"搜索失败: {str(e)[:50]}", icon="⚠️")
+        return []
