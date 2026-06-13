@@ -18,6 +18,8 @@ st.set_page_config(page_title="牢大GPT", page_icon="🤖", layout="wide")
 
 # ========== 配置 ==========
 API_URL = "https://mynewapi.n1neman.fun/v1"
+url1=API_URL1
+url2="https://api.deepseek.com"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORY_DIR = os.path.join(BASE_DIR, "chat_history")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
@@ -247,6 +249,8 @@ with st.sidebar:
     show_banner_gif()
     
     api_key = os.environ.get('CAPI')
+    api1=api_key
+    api2=os.environ.get('DAPI')
     if api_key:
         st.session_state.api_key = api_key
         st.success("✅ API密钥已设置")
@@ -270,7 +274,13 @@ with st.sidebar:
         st.rerun()
     st.caption(f"当前模型: `{st.session_state.selected_model}`")
     st.markdown("---")
-    
+    if selected_model=="deepseek-v4-pro":
+        API_URL=url2
+        api_key=api2
+    else:
+        API_URL=url1
+        api_key=api1
+        
     # 联网搜索开关
     st.session_state.web_search = st.toggle("🌐 开启联网搜索", value=st.session_state.web_search)
     st.markdown("---")
