@@ -16,6 +16,7 @@ from chat_core import stream_response, render_crash_message
 from conversation import save_conversation, load_conversation, delete_conversation, list_conversations
 from utils import get_openai_client, search_web, AVAILABLE_MODELS, DEFAULT_MODEL
 from connection_warmup import warmup_manager
+from sidebar import render_sidebar   # ✅ 修正函数名
 # ========== 页面配置 ==========
 st.set_page_config(page_title="牢大GPT", page_icon="🤖", layout="wide")
 
